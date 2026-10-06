@@ -35,6 +35,20 @@ C/C++ Firmware für den ESP32-Microcontroller zur externen Überwachung und Steu
 
 ---
 
+## ⚠️ Hardware-Hinweis: USB-UART DTR/RTS Boot-Trap
+
+Bei manchen ESP32-Dev-Boards (mit CP2102- oder CH340-Chip) kann es vorkommen, dass beim Neustart des Host-PCs oder beim Einstecken die Steuerleitungen DTR/RTS auf LOW gezogen werden. Dadurch geht der ESP32 in den **Download-Bootloader-Modus** (`boot:0x3 (DOWNLOAD_BOOT)`):
+
+- **Symptom:** Display bleibt dunkel, LEDs leuchten dauerhaft oder gar nicht, serielle Ausgabe zeigt `waiting for download`.
+- **Lösung:**
+  1. **Software-Reset über Host:**
+     ```bash
+     esptool.py --port /dev/ttyUSB0 run
+     ```
+  2. **Hardware-Fix:** Einen 10µF Elektrolytkondensator zwischen dem `EN`-Pin (Reset) und `GND` anbringen. Dies unterdrückt versehentliche Spikes auf der Reset-Leitung beim Host-Boot.
+
+---
+
 ## 📦 Benötigte Arduino-Bibliotheken
 
 Über den Bibliotheksverwalter in der Arduino IDE (oder `arduino-cli`) installieren:
@@ -50,7 +64,7 @@ C/C++ Firmware für den ESP32-Microcontroller zur externen Überwachung und Steu
 1. Öffne [`MinecraftServerMonitor.ino`](MinecraftServerMonitor.ino) in der Arduino IDE.
 2. Passe die Zeilen 48–50 sowie 605 mit deinen Zugangsdaten an:
    ```cpp
-   const char* TAILSCALE_BASE_URL = "https://DEIN-GERAET.ts.net";
+   const char* TAILSCALE_BASE_URL = "https://prime.tail923f91.ts.net";
    wifiMulti.addAP("MEIN_HOTSPOT", "MEIN_PASSWORT");
    ```
 3. Wähle als Board: **ESP32 Dev Module** (oder NodeMCU-32S).
