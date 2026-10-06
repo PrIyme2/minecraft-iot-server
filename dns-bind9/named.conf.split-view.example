@@ -1,0 +1,40 @@
+// ==============================================================================
+// BIND9 Split-View DNS Configuration Example
+// ==============================================================================
+// Automatically serves different IP addresses based on the client origin:
+// - Tailscale VPN clients (100.64.0.0/10, fd7a:115c:a1e0::/48) receive Tailscale IPs.
+// - Local LAN clients (192.168.0.0/16, etc.) receive direct local LAN IPs.
+// ==============================================================================
+
+include "/etc/bind/named.conf.options";
+
+// Access Control List for Tailscale clients
+acl tailscale_clients {
+    100.64.0.0/10;            // CGNAT IPv4 range used by Tailscale
+    fd7a:115c:a1e0::/48;      // Unique Local IPv6 range used by Tailscale
+};
+
+// View 1: Tailscale Clients
+view "tailscale" {
+    match-clients { tailscale_clients; };
+
+    zone "server.priyme" {
+        type master;
+        file "/etc/bind/zones/db.server.priyme.tailscale";
+    };
+
+    zone "server.lan" {
+        type master;
+        file "/etc/bind/zones/db.server.lan.tailscale";
+    };
+
+    include "/etc/bind/named.conf.root-hints";
+};
+
+// View 2: Local LAN / Default Clients
+view "default" {
+    match-clients { any; };
+
+    include "/etc/bind/named.conf.local";
+    include "/etc/bind/named.conf.root-hints";
+};
