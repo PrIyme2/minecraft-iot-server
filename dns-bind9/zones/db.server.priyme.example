@@ -1,0 +1,19 @@
+$TTL    604800
+@       IN      SOA     ns1.server.priyme. admin.server.priyme. (
+                              4         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+
+; Nameserver Definition
+@       IN      NS      ns1.server.priyme.
+
+; A-Records (Tailscale IP fuer weltweiten Zugriff via VPN)
+@       IN      A       100.111.45.61
+ns1     IN      A       100.111.45.61
+mc      IN      A       100.111.45.61
+panel   IN      A       100.111.45.61
+
+; Minecraft SRV Record
+_minecraft._tcp.server.priyme.   IN   SRV   0 5 25565 mc.server.priyme.

@@ -1,0 +1,44 @@
+# Configuration files containing credentials & secrets
+*.conf
+!*.conf.example
+.env
+backup.conf
+monitor.conf
+
+# SSL/TLS certificates and private keys
+*.key
+*.crt
+*.pem
+
+# Encryption keys & encrypted archives
+*.gpg
+*.tar.gz
+*.tar.zst
+*.zip
+backups/
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Arduino & PlatformIO build artifacts
+build/
+.pio/
+*.bin
+*.elf
+*.hex
+
+# Logs
+*.log
+
+# OS & Editor artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~

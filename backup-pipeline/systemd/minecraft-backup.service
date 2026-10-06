@@ -1,0 +1,15 @@
+[Unit]
+Description=Minecraft & Database Automated Google Drive Backup Pipeline
+After=network-online.target docker.service mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/home/prime/minecraft-backup
+ExecStart=/home/prime/minecraft-backup/backup.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

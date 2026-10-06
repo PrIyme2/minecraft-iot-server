@@ -1,0 +1,11 @@
+[Unit]
+Description=Lock CPU to Maximum Performance and Minimum 4.0 GHz
+After=multi-user.target power-profiles-daemon.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/set-cpu-performance.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

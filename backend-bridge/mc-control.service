@@ -1,0 +1,15 @@
+[Unit]
+Description=Minecraft ESP32 Control Service (Start/Stop/Backup Bridge)
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=root
+# Environment file can be placed at /etc/default/mc-control or configured directly
+EnvironmentFile=-/etc/default/mc-control
+ExecStart=/usr/bin/python3 -u /usr/local/bin/mc-control-service.py
+Restart=always
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily Minecraft & Database Automated Google Drive Backup Timer
+After=network-online.target
+
+[Timer]
+# Führt das Backup täglich um 03:30 Uhr nachts aus
+OnCalendar=*-*-* 03:30:00
+# Falls der Server um 03:30 ausgeschaltet war, wird das Backup beim nächsten Start nachgeholt
+Persistent=true
+# Leichtes Zufalls-Delay von bis zu 5 Min zur Entlastung
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

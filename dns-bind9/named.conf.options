@@ -1,0 +1,19 @@
+options {
+    directory "/var/cache/bind";
+
+    forwarders {
+        1.1.1.1;
+        8.8.8.8;
+    };
+
+    // Erlaubt Anfragen von allen IPs im lokalen Netz
+    allow-query { any; };
+    allow-query-cache { any; };
+    allow-recursion { any; };
+
+    dnssec-validation auto;
+
+    // Auf ALLEN IPv4 und IPv6 Schnittstellen lauschen
+    listen-on { any; };
+    listen-on-v6 { any; };
+};

@@ -1,0 +1,39 @@
+# ==============================================================================
+# Konfiguration: Minecraft Performance-Monitoring & Discord-Alerting Daemon
+# Kopiere diese Datei nach 'monitor.conf' und passe die Einstellungen an:
+# ==============================================================================
+
+# --- Discord Webhook ---
+# Trage hier deine Discord Webhook URL ein:
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
+
+# --- Server- & Container-Identifikation ---
+CONTAINER_NAME="15978df8-7342-4713-8d50-3f15de6cc95d"
+SERVER_NAME="smp"
+
+# --- RCON-Verbindung fuer TPS & Spielerzahlen ---
+RCON_HOST="127.0.0.1"
+RCON_PORT=25566
+RCON_PASSWORD="your_secure_rcon_password"
+
+# --- Pruefintervall (in Sekunden) ---
+CHECK_INTERVAL_SECONDS=20
+
+# --- Schwellwerte fuer Performance-Alerts ---
+# TPS-Grenzwerte (Normal: 20.0 TPS)
+TPS_WARN_THRESHOLD=17.0
+TPS_CRITICAL_THRESHOLD=14.0
+
+# RAM-Grenzwerte (in Prozent)
+RAM_WARN_PERCENT=85.0
+RAM_CRITICAL_PERCENT=95.0
+
+# --- Benachrichtigungs-Logik ---
+# Cooldown zwischen wiederholten Alarmen des gleichen Problems (in Sekunden, z.B. 600 = 10 Min)
+ALERT_COOLDOWN_SECONDS=600
+
+# Soll eine "Alles wieder normal / Entwarnung" Nachricht gesendet werden? (true/false)
+NOTIFY_RECOVERY=true
+
+# Soll beim Start des Daemons eine kurze Statusmeldung an Discord gesendet werden? (true/false)
+NOTIFY_ON_STARTUP=true

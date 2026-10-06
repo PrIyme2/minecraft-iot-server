@@ -1,0 +1,73 @@
+# ==============================================================================
+# Konfiguration: Minecraft & Pterodactyl Google Drive Backup Pipeline
+# Kopiere diese Datei nach 'backup.conf' und passe die Zugangsdaten an:
+# chmod 600 backup.conf
+# ==============================================================================
+
+# --- Server-Pfade ---
+# Pfad zum Minecraft-Server-Volume (Reviactyl / Pterodactyl)
+MC_SERVER_DIR="/var/lib/reviactyl/volumes/15978df8-7342-4713-8d50-3f15de6cc95d"
+
+# Lokales Backup-Archivverzeichnis
+BACKUP_LOCAL_DIR="/home/prime/backups"
+
+# Temporäres Arbeitsverzeichnis während der Backup-Erstellung
+TEMP_DIR="/tmp/mc_backup"
+
+# Logdatei
+LOG_FILE="/var/log/minecraft-backup.log"
+
+# --- Minecraft RCON (für Live-World-Flush & Save-Lock) ---
+RCON_ENABLED=true
+RCON_HOST="127.0.0.1"
+RCON_PORT=25566
+RCON_PASSWORD="your_secure_rcon_password"
+
+# --- MariaDB / MySQL Datenbankeinstellungen ---
+DB_BACKUP_ENABLED=true
+DB_HOST="127.0.0.1"
+DB_PORT=3306
+DB_USER="pterodactyl"
+DB_PASSWORD="your_mariadb_password"
+# Mehrere Datenbanken können mit Leerzeichen getrennt angegeben werden
+DB_NAMES=("panel")
+
+# --- Verschlüsselung (GPG AES-256) ---
+# Schützt die Backups vor unbefugtem Zugriff in Google Drive
+ENCRYPTION_ENABLED=true
+# Passphrase für symmetrische AES-256 Verschlüsselung
+# BITTE SICHER NOTIEREN! Ohne dieses Passwort ist keine Wiederherstellung möglich.
+GPG_PASSPHRASE="YourStrongGpgEncryptionPassphraseHere!"
+
+# --- Komprimierung & Ausschlüsse ---
+# Unterstützt: "gzip" (.tar.gz) oder "zstd" (.tar.zst)
+COMPRESSION_METHOD="gzip"
+
+# Ordner und statische Server-Binaries, die vom Routine-Backup ausgeschlossen werden
+# (Können bei Bedarf mit 'backup.sh --full' mitgesichert werden)
+EXCLUDE_ITEMS=(
+    "cache"
+    ".cache"
+    "libraries"
+    "versions"
+    "server.jar"
+    "logs/*.log.gz"
+)
+
+# --- Cloud Upload (Rclone Google Drive) ---
+# Name des Rclone-Remotes (konfiguriert via rclone config)
+RCLONE_REMOTE="gdrive"
+# Zielverzeichnis auf Google Drive
+RCLONE_FOLDER="MinecraftBackups"
+
+# --- Retention Policy (Aufbewahrungsfristen) ---
+# Lokale Aufbewahrung: Wie viele Backups sollen lokal auf der SSD behalten werden?
+RETENTION_LOCAL_COUNT=5
+
+# Cloud Aufbewahrung: Nach wie vielen Tagen sollen alte Backups auf Google Drive gelöscht werden?
+RETENTION_REMOTE_DAYS=14
+
+# --- Alerting & Monitoring (Discord Webhook) ---
+# Optional: Discord Webhook URL für Benachrichtigungen bei Erfolg oder Fehlern
+# Leer lassen (""), falls nicht genutzt
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"

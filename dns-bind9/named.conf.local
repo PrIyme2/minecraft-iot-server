@@ -1,0 +1,17 @@
+// Forward-Zone fuer server.priyme
+zone "server.priyme" {
+    type master;
+    file "/etc/bind/zones/db.server.priyme";
+};
+
+// Forward-Zone fuer server.lan
+zone "server.lan" {
+    type master;
+    file "/etc/bind/zones/db.server.lan";
+};
+
+// Reverse-Zone fuer das Subnetz 192.168.1.x
+zone "1.168.192.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.192.168.1";
+};
