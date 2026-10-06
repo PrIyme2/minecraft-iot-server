@@ -4,12 +4,13 @@
 [![Minecraft: Purpur 1.21](https://img.shields.io/badge/Minecraft-Purpur%201.21.x-blue.svg)](https://purpurmc.org)
 [![Hardware: ESP32](https://img.shields.io/badge/Hardware-ESP32-brightgreen.svg)](https://espressif.com)
 [![Network: Tailscale WireGuard](https://img.shields.io/badge/VPN-Tailscale%20Mesh-blueviolet.svg)](https://tailscale.com)
+[![DNS: BIND9 Split--View](https://img.shields.io/badge/DNS-BIND9%20Split--View-orange.svg)](https://www.isc.org/bind/)
 [![Security: GPG AES-256](https://img.shields.io/badge/Encryption-GPG%20AES--256-orange.svg)](https://gnupg.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Eine professionelle, produktionsreife IT-Infrastruktur für Game-Server-Hosting, Disaster Recovery, Performance-Monitoring und physische IoT-Fernsteuerung über einen externen ESP32-Mikrocontroller.
 
-Dieses Projekt vereint moderne **DevOps-Konzepte** (Docker, Systemd, Cgroups v2, REST-APIs), **Datensicherheit & Disaster Recovery** (GPG AES-256 Verschlüsselung, Cloud-Sync via Rclone), **Zero-Trust-Netzwerke** (Tailscale Mesh VPN & TLS Funnel, BIND9 Split-DNS) sowie **Embedded Systems** (ESP32 C/C++, Hardware-Interrupts, I2C-Display und LED-Ampel).
+Dieses Projekt vereint moderne **DevOps-Konzepte** (Docker, Systemd, Cgroups v2, REST-APIs), **Datensicherheit & Disaster Recovery** (GPG AES-256 Verschlüsselung, Cloud-Sync via Rclone), **Zero-Trust-Netzwerke** (Tailscale Mesh VPN & TLS Funnel, BIND9 Split-View DNS) sowie **Embedded Systems** (ESP32 C/C++, Hardware-Interrupts, I2C-Display und LED-Ampel).
 
 ---
 
@@ -24,13 +25,14 @@ graph TD
     end
 
     subgraph Mesh ["Zero-Trust VPN & Edge Ingress"]
-        Funnel["🌍 Tailscale Funnel (HTTPS Ingress)"]
-        MeshVPN["🔐 Tailscale Mesh (WireGuard P2P)"]
-        SplitDNS["🌐 BIND9 Split-DNS (mc.server.priyme)"]
+        Funnel["🌍 Tailscale Funnel (HTTPS Ingress :443)"]
+        MeshVPN["🔐 Tailscale Mesh (WireGuard P2P :22, :80, :25565)"]
+        SplitDNS["🌐 BIND9 Split-View DNS (mc.server.priyme)"]
         Hotspot --> Funnel
     end
 
     subgraph ServerHost ["Debian 13 Linux Server (Laptop)"]
+        Nginx["🌐 Nginx Reverse Proxy (:80 / :443)"]
         Bridge["🔌 Backend Control Bridge (:5000)"]
         DockerMC["⛏️ Purpur Minecraft 1.21 Container"]
         Agent["🦅 Pterodactyl Wings Agent (:8080)"]
@@ -38,7 +40,8 @@ graph TD
         Backup["📦 Encrypted Backup Pipeline"]
         CPULock["⚡ 4.0 GHz Turbo & C-State Tuning"]
 
-        Funnel --> Bridge
+        Funnel --> Nginx
+        Nginx --> Bridge
         Bridge --> Agent
         Bridge --> DockerMC
         Monitor --> DockerMC
@@ -62,19 +65,24 @@ graph TD
 minecraft-iot-server/
 ├── README.md                      # Gesamtdokumentation & Projektübersicht
 ├── .gitignore                     # Schutz vor Commits sensibler Dateien & Logs
+├── scripts/                       # Diagnose- und Wartungsskripte
+│   └── healthcheck.sh             # Automatische 16-Punkte Systemdiagnose
 ├── docs/                          # Vertiefende technische Dokumentationen
-│   ├── ARCHITECTURE.md            # Detaillierte Architektur, Datenflüsse & Protokolle
+│   ├── ARCHITECTURE.md            # Detaillierte Architektur, Datenflüsse & Port-Mapping
 │   ├── HARDWARE_ESP32.md          # Schaltpläne, Pinouts, Entprellung & Display-Modi
-│   ├── TAILSCALE_SETUP.md         # Zero-Trust VPN, Funnel Ingress & Split-DNS
+│   ├── TAILSCALE_SETUP.md         # Zero-Trust VPN, Funnel Ingress, Split-DNS & Remote SSH
 │   ├── BACKUP_PIPELINE.md         # Save-Flush-Garantie, AES-256 & Disaster Recovery
+│   ├── PTERODACTYL_REVERSE_PROXY.md # Multi-Domain Reverse Proxy & Trusted Proxies Setup
+│   ├── PTERODACTYL_NODE_WEBSOCKET_PNA.md # Lösung für WebSocket PNA Blockaden
+│   ├── CLIENT_NETWORK_TROUBLESHOOTING.md # Leitfaden für WLAN-Wechsel & KI-Diagnose-Prompt
 │   └── LAGEBERICHT.md             # Vollständiger Systembericht und Komponentencheck
 ├── esp32-firmware/                # Embedded C++ Firmware für den ESP32
 │   ├── MinecraftServerMonitor.ino # Hauptsketch (OLED/LCD, Taster, Ampel, WiFiMulti)
-│   └── README.md                  # Flash-Anleitung, Libraries & Pinout-Tabelle
+│   └── README.md                  # Flash-Anleitung, Libraries & DTR/RTS Boot-Trap Fix
 ├── backend-bridge/                # REST-API Schnittstelle für den ESP32
 │   ├── mc-control-service.py      # Python HTTP-Daemon (Cgroups RAM, RCON Pipeline)
 │   ├── mc-control.service         # Systemd Unit File
-│   ├── .env.example               # Konfigurationsvorlage (Container ID, Token, Ports)
+│   ├── fix_node_fqdn.sql          # SQL-Patch für Pterodactyl Node-FQDN
 │   └── README.md                  # API-Endpunkte, curl-Tests & Einrichtung
 ├── backup-pipeline/               # Disaster Recovery & Cloud Backup
 │   ├── backup.sh                  # Haupt-Backupskript mit RCON-Lock & GPG-Verschlüsselung
@@ -94,10 +102,11 @@ minecraft-iot-server/
 │   ├── set-cpu-performance.sh     # Performance Governor, 4.0 GHz Lock, C-States Off
 │   ├── cpu-performance.service    # Systemd Boot-Service
 │   └── README.md                  # Laptop Server Setup (Lid-Close, Thermals)
-└── dns-bind9/                     # Lokaler DNS & Split-DNS für weltweiten Zugriff
-    ├── named.conf.local           # Zonen-Konfiguration
+└── dns-bind9/                     # Lokaler DNS & Split-View für weltweiten Zugriff
+    ├── named.conf.split-view.example # BIND9 View-Konfiguration (ACL Erkennung)
+    ├── named.conf.local           # Standard Heimnetz-Zonen
     ├── named.conf.options         # Interface- & Forwarder-Optionen
-    ├── zones/                     # DNS-Zonendateien (A-Records, SRV-Records)
+    ├── zones/                     # DNS-Zonendateien (60s TTL, LAN & Tailscale)
     └── nginx/                     # Pterodactyl Nginx Reverse-Proxy Vorlage
 ```
 
@@ -105,72 +114,45 @@ minecraft-iot-server/
 
 ## 🌟 Hauptkomponenten im Detail
 
-### 1. 📟 ESP32 IoT Hardware Controller
+### 1. 🌐 BIND9 Split-View DNS & Tailscale
+- **Automatische Client-Erkennung:** Tailscale-Clients (`100.64.0.0/10`) erhalten die VPN-IP `100.111.45.61`; lokale Heimnetz-Clients erhalten `192.168.0.33`.
+- **Niedrige 60s TTL:** Verhindert veraltete DNS-Caches auf Windows/Mobilgeräten beim Wechsel zwischen Heim-WLAN und mobilen Hotspots.
+- **Weltweite Erreichbarkeit:** `panel.server.priyme` und `mc.server.priyme` funktionieren nahtlos über Tailscale ohne offene Router-Ports.
+
+### 2. 📟 ESP32 IoT Hardware Controller
 - **Anzeige:** SSD1306 0.96" OLED (128x64) oder HD44780 16x2 LCD Display.
 - **Ampel:** 3-farbige LED-Ampel (Grün = TPS ≥ 19.5, Gelb = Booting/Warnung, Rot = Offline/Lag).
 - **Steuerung:** 3 Taster (Start, Stop, Google Drive Backup) mit Hardware-Interrupts (`FALLING`) und 300ms Software-Entprellung.
 - **Netzwerk:** Automatisches Roaming via `WiFiMulti` (Handy-Hotspot für unterwegs, lokales WLAN zuhause) mit automatischem Fallback zwischen lokalem HTTP (`:5000`) und weltweitem HTTPS Funnel.
 
-### 2. 🔌 Backend Control Bridge (`mc-control-service`)
+### 3. 🔌 Backend Control Bridge (`mc-control-service`)
 - Ultraschneller Cgroups v2 RAM-Reader (`/sys/fs/cgroup/.../memory.current`), Antwortzeit ca. **30 Millisekunden** (statt 1,5 Sekunden bei `docker stats`).
 - Single-Socket RCON Multiplexing: Fragt TPS und Spielerzahlen über eine einzige TCP-Verbindung ab, um Socket-Timeouts zu eliminieren.
 - Direkte Integration mit der Pterodactyl Wings Agent API für saubere Server-Power-Cycles.
 
-### 3. 📦 Verschlüsselte Google Drive Backup Pipeline
+### 4. 📦 Verschlüsselte Google Drive Backup Pipeline
 - **Zero-Downtime Save-Flush:** Schützt Spielstände vor Chunk-Boundary-Tearing durch sequentielles `save-off` $\rightarrow$ `save-all flush` $\rightarrow$ `save-on`.
 - **Datenbanksicherung:** Automatischer Hot-Dump der MariaDB Pterodactyl-Panel-Datenbanken (`mysqldump`).
 - **GPG AES-256:** Clientseitige symmetrische Verschlüsselung vor dem Cloud-Upload.
 - **Rclone Integration:** Direkter Upload nach Google Drive mit automatischer Retention Policy (5 lokale Backups, 14 Tage Cloud-Speicher).
 - **Automatisierung:** Nativer Systemd-Timer jeden Tag um **03:30 Uhr**.
 
-### 4. 📊 Performance-Monitoring & Discord-Alerting
-- Kontinuierliche Überwachung von TPS, Container-RAM und Prozess-Status im 20-Sekunden-Takt.
-- Rich Discord Embeds mit Schwellwert-Farbkodierung.
-- Integrierter Spam-Schutz (Cooldown-Timer) und automatische Entwarnungen bei Erholung.
-
-### 5. ⚡ Laptop Server Tuning & Turbo Lock
-- Dauerhafte Sperre des Intel P-State Governor auf `performance` mit minimal 4.0 GHz.
-- Deaktivierung tiefer CPU C-States (`state1`–`state3`), um Tick-Jitter bei niedriger Spielerlast zu verhindern.
-- `systemd-logind` Anpassung für den 24/7 Betrieb bei zugeklapptem Laptop-Deckel.
+### 5. 🩺 Automatische Systemdiagnose (`healthcheck.sh`)
+- Einzeiliges Diagnosetool zur Überprüfung von 16 Parametern (BIND9, Nginx, Wings, Minecraft, IoT Bridge, Docker, Tailscale, Funnel HTTPS, DNS Views).
 
 ---
 
-## 🚀 Schnellstart (Quickstart)
+## 🚀 Schnellstart & Diagnose
 
-### 1. Repository klonen & Konfigurationen vorbereiten
+### Systemzustand prüfen:
 ```bash
-git clone https://github.com/DEIN-BENUTZERNAME/DEIN-REPONAME.git
-cd DEIN-REPONAME
-
-# Konfigurationsdateien aus Beispielen erstellen:
-cp backend-bridge/.env.example /etc/default/mc-control
-cp backup-pipeline/backup.conf.example backup-pipeline/backup.conf
-cp perf-monitoring/monitor.conf.example perf-monitoring/monitor.conf
+./scripts/healthcheck.sh
 ```
 
-### 2. Backend Bridge starten
+### Fernwartung via SSH über Tailscale:
 ```bash
-sudo cp backend-bridge/mc-control-service.py /usr/local/bin/
-sudo cp backend-bridge/mc-control.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now mc-control.service
+ssh prime@100.111.45.61
 ```
-
-### 3. Monitoring & Backups aktivieren
-```bash
-# Backup-Timer aktivieren:
-sudo cp backup-pipeline/systemd/* /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now minecraft-backup.timer
-
-# Monitoring-Dienst aktivieren:
-sudo cp perf-monitoring/mc-perf-monitor.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now mc-perf-monitor.service
-```
-
-### 4. ESP32 flashen
-1. [`MinecraftServerMonitor.ino`](esp32-firmware/MinecraftServerMonitor.ino) in der Arduino IDE öffnen.
-2. Bibliotheken (`Adafruit_SSD1306`, `Adafruit_GFX`, `ArduinoJson`) installieren.
-3. WLAN-SSID und Tailscale-URL anpassen.
-4. Auf das ESP32 Dev Board übertragen.
 
 ---
 
