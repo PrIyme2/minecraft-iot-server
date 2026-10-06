@@ -1,12 +1,28 @@
 server {
     listen 80;
     listen [::]:80;
+    listen 192.168.0.33:443 ssl;
+    listen 127.0.0.1:443 ssl;
 
-    server_name 192.168.0.33 100.111.45.61 panel.server.priyme panel.server.lan *.server.priyme;
+    ssl_certificate /etc/ssl/certs/pterodactyl-selfsigned.crt;
+    ssl_certificate_key /etc/ssl/private/pterodactyl-selfsigned.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    server_name 192.168.0.33 100.111.45.61 panel.server.priyme panel.server.lan *.server.priyme prime.tail923f91.ts.net;
 
     root /var/www/pterodactyl/public;
     index index.html index.htm index.php;
     charset utf-8;
+
+    # ESP32 IoT Hardware Bridge Endpoints
+    location ~ ^/(api/status|start|stop|backup|status) {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
@@ -15,7 +31,7 @@ server {
     location = /favicon.ico { access_log off; log_not_found off; }
     location = /robots.txt  { access_log off; log_not_found off; }
 
-    access_log off;
+    access_log /var/log/nginx/pterodactyl.access.log;
     error_log  /var/log/nginx/pterodactyl.app-error.log error;
 
     # allow larger file uploads and longer script runtimes
