@@ -1,12 +1,12 @@
-# 🖥️ Pterodactyl / Reviactyl Multi-Domain Reverse Proxy & Asset Setup
+# Pterodactyl / Reviactyl Multi-Domain Reverse Proxy & Asset Setup
 
 Dokumentation zur Konfiguration von Nginx, Tailscale Funnel HTTPS und Laravel-Umgebungseinstellungen für Pterodactyl/Reviactyl, um Asset-Ladefehler und Mixed-Content-Blockaden zu verhindern.
 
 ---
 
-## 📌 Problemstellung
+## 1. Problemstellung
 
-Wenn ein Pterodactyl-Panel über mehrere Domains und Interfaces aufgerufen werden soll (z. B. `http://panel.server.priyme`, `http://192.168.0.33`, `http://100.111.45.61` und Tailscale Funnel `https://prime.tail923f91.ts.net`), treten standardmäßig zwei Probleme auf:
+Wenn ein Pterodactyl-Panel über mehrere Domains und Interfaces aufgerufen werden soll (z. B. `http://panel.server.priyme`, `http://192.168.0.33`, `http://100.111.45.61` und Tailscale Funnel `https://<tailnet-node>.ts.net`), treten standardmäßig zwei Probleme auf:
 
 1. **Starrer `APP_URL` in Laravel:**
    - Wenn `APP_URL="http://panel.server.priyme"` fest in `/var/www/pterodactyl/.env` steht, generiert das Panel alle CSS- und JS-Dateien mit dieser absoluten Domain.
@@ -17,7 +17,7 @@ Wenn ein Pterodactyl-Panel über mehrere Domains und Interfaces aufgerufen werde
 
 ---
 
-## 🛠️ Die Lösung
+## 2. Die Lösung
 
 ### 1. Trusted Proxies in `.env` aktivieren
 In `/var/www/pterodactyl/.env`:
@@ -69,7 +69,7 @@ sudo -u www-data php /var/www/pterodactyl/artisan view:clear
 
 ---
 
-## 🔒 Ergebnis
+## 3. Ergebnis
 - `http://panel.server.priyme/` $\rightarrow$ Assets laden als `http://panel.server.priyme/build/...`
 - `http://192.168.0.33/` $\rightarrow$ Assets laden als `http://192.168.0.33/build/...`
-- `https://prime.tail923f91.ts.net/` $\rightarrow$ Assets laden als `https://prime.tail923f91.ts.net/build/...` (kein Mixed Content!)
+- `https://<tailnet-node>.ts.net/` $\rightarrow$ Assets laden als `https://<tailnet-node>.ts.net/build/...` (kein Mixed Content)

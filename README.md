@@ -71,6 +71,22 @@ graph TD
     ESP -->|"HTTPS / Hotspot"| Funnel
     Player -->|"mc.server.priyme"| DNS
     Browser -->|"panel.server.priyme"| Nginx
+
+    %% Clickable Links zur Implementierung & Installation
+    click ESP href "esp32-firmware/MinecraftServerMonitor.ino" "ESP32 Firmware Source"
+    click Funnel href "docs/TAILSCALE_SETUP.md" "Tailscale Setup & Funnel"
+    click Mesh href "docs/TAILSCALE_SETUP.md" "Tailscale Mesh VPN Setup"
+    click DNS href "dns-bind9/README.md" "BIND9 Split-View DNS"
+    click Nginx href "dns-bind9/nginx/pterodactyl.conf.example" "Nginx Reverse Proxy VHost"
+    click Bridge href "backend-bridge/mc-control-service.py" "mc-control-service.py REST API"
+    click Panel href "#phase-2-reviactyl-panel--wings-daemon" "Pterodactyl / Reviactyl Panel Installation"
+    click Extensions href "panel-extensions/README.md" "Reviactyl Extensions (MCJars & Modrinth)"
+    click DB href "#phase-2-reviactyl-panel--wings-daemon" "MariaDB Datenbank Setup"
+    click Wings href "docs/PTERODACTYL_NODE_WEBSOCKET_PNA.md" "Wings Agent Setup & WebSocket Fix"
+    click DockerMC href "scripts/healthcheck.sh" "Minecraft Server Health Check"
+    click Backup href "backup-pipeline/backup.sh" "Backup Pipeline Skript"
+    click GDrive href "backup-pipeline/sync_gdrive_backups.py" "Google Drive Sync Engine"
+    click Discord href "backup-pipeline/send_discord.py" "Discord Webhook Script"
 ```
 
 ---
@@ -125,7 +141,12 @@ graph TD
 
 ### Phase 2: Reviactyl Panel & Wings Daemon
 
-Detaillierte Konfigurationen befinden sich unter [docs/PTERODACTYL_REVERSE_PROXY.md](docs/PTERODACTYL_REVERSE_PROXY.md).
+Detaillierte Architektur- und Fehlerbehebungs-Leitfäden für Pterodactyl & Reviactyl:
+- [Pterodactyl Multi-Domain Reverse Proxy & Asset Setup](docs/PTERODACTYL_REVERSE_PROXY.md) (Verhindert Mixed-Content-Blockaden und Asset-Fehler unter Funnel)
+- [Pterodactyl Node WebSocket & PNA Fix](docs/PTERODACTYL_NODE_WEBSOCKET_PNA.md) (Behebt den roten Verbindungsbalken in der Live-Konsole)
+- [Pterodactyl Node FQDN SQL Update](backend-bridge/fix_node_fqdn.sql) (Automatischer MariaDB-Patch)
+- [Nginx VirtualHost Konfiguration](dns-bind9/nginx/pterodactyl.conf.example) (Port 80, 443 & Reverse Proxy VHost)
+- [Systemarchitektur & Port-Zuordnung](docs/ARCHITECTURE.md) (Detaillierte Übersicht aller Sockets und Datenflüsse)
 
 1. Datenbank vorbereiten:
    ```sql
@@ -156,11 +177,19 @@ Detaillierte Konfigurationen befinden sich unter [docs/PTERODACTYL_REVERSE_PROXY
    sudo systemctl restart nginx
    ```
 
-4. Wings Daemon konfigurieren:
+4. Wings Daemon (Agent) konfigurieren:
    Im Panel eine Node anlegen, Konfigurationsdatei nach `/etc/pterodactyl/config.yml` kopieren und Service starten:
    ```bash
    sudo systemctl enable --now agent.service
    ```
+
+5. Node-FQDN und Browser-PNA für Live-Konsole absichern:
+   Damit Browser die WebSocket-Verbindung zur Serverkonsole nicht blockieren (roter Balken), muss der Node-FQDN auf den Hostnamen gesetzt werden:
+   ```bash
+   sudo mariadb < backend-bridge/fix_node_fqdn.sql
+   sudo systemctl restart agent.service
+   ```
+   Details siehe [docs/PTERODACTYL_NODE_WEBSOCKET_PNA.md](docs/PTERODACTYL_NODE_WEBSOCKET_PNA.md).
 
 ---
 
@@ -261,7 +290,12 @@ Dokumentation: [docs/BACKUP_PIPELINE.md](docs/BACKUP_PIPELINE.md).
    sudo systemctl enable --now minecraft-backup.timer
    sudo systemctl enable --now gdrive-backup-sync.timer
    ```
-   Backups werden täglich um 03:30 Uhr ausgeführt und alle 5 Minuten synchronisiert. Im Reviactyl-Webpanel unter dem Reiter **Backups** werden ausschließlich verifizierte Minecraft-Archive (`mc_backup_*.tar.gz.gpg`) gelistet.
+   Backups können über 3 Wege ausgelöst werden:
+   - **Webpanel:** Im Reviactyl-Webpanel unter dem Reiter **Backups** via `Create Backup` Button (sendet Request an `/backup` der REST-Bridge).
+   - **Hardware-Taster:** Am physischen ESP32-Controller via Taster GPIO 23 gegen GND (Status über gelbe LED).
+   - **Automatisiert:** Täglich um 03:30 Uhr per Systemd-Timer.
+
+   Im Reviactyl-Webpanel unter dem Reiter **Backups** werden ausschließlich verifizierte Minecraft-Archive (`mc_backup_*.tar.gz.gpg`) gelistet. Details siehe [docs/BACKUP_PIPELINE.md](docs/BACKUP_PIPELINE.md) und [backup-pipeline/README.md](backup-pipeline/README.md).
 
 ---
 

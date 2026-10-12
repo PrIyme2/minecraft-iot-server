@@ -106,7 +106,12 @@ fi
 echo -e "\n${BLUE}▶ 4. HTTP Endpoints & API Health${NC}"
 check_http "http://127.0.0.1/api/status" "Local IoT Bridge Status"
 check_http "http://127.0.0.1/" "Pterodactyl Web Panel"
-check_http "https://prime.tail923f91.ts.net/api/status" "Tailscale Funnel IoT Status"
+FUNNEL_URL=$(tailscale status 2>/dev/null | grep -o 'https://[^ ]*' | head -n 1)
+if [ -n "$FUNNEL_URL" ]; then
+    check_http "${FUNNEL_URL}/api/status" "Tailscale Funnel IoT Status"
+else
+    echo -e "  [${YELLOW}SKIP${NC}] Tailscale Funnel IoT Status (No active funnel detected)"
+fi
 
 # 5. Docker Containers
 echo -e "\n${BLUE}▶ 5. Docker Minecraft Container Status${NC}"
