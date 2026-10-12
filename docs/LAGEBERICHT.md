@@ -75,7 +75,7 @@ Das Projekt realisiert eine professionelle, mehrschichtige IT-Infrastruktur für
 ---
 
 ### Schicht 2: Game-Server & Virtualisierung (Docker & Pterodactyl)
-* **Container-Instanz:** `15978df8-7342-4713-8d50-3f15de6cc95d` auf Basis von `ghcr.io/reviactyl/images:java_25`.
+* **Container-Instanz:** Dedizierter Docker-Container (Reviactyl / Wings) auf Basis von `ghcr.io/reviactyl/images:java_25`.
 * **Server-Core:** **Purpur 1.21.x** (hochoptimierter Paper/Spigot-Fork).
 * **Ports & Netzwerk:**
   * Game-Port: `25565/TCP+UDP`

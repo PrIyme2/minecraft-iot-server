@@ -38,11 +38,16 @@ In der Arduino IDE installieren:
 
 ## 4. Konfiguration & Flashen
 
-1. [`MinecraftServerMonitor.ino`](MinecraftServerMonitor.ino) in Arduino IDE öffnen.
-2. Zeilen 48–50 mit eigener Funnel-URL und WLAN anpassen:
-   ```cpp
-   const char* TAILSCALE_BASE_URL = "https://<tailnet-node>.ts.net";
-   wifiMulti.addAP("WLAN_SSID", "WLAN_PASSWORT");
+1. Konfigurationsvorlage kopieren:
+   ```bash
+   cp esp32-firmware/config.h.example esp32-firmware/config.h
    ```
-3. Board: **ESP32 Dev Module**.
-4. Flashen per USB.
+2. In [`config.h`](config.h.example) WLAN-Zugangsdaten und Tailscale-Funnel-URL eintragen (`config.h` wird durch `.gitignore` geschützt und nicht in Git übertragen):
+   ```cpp
+   #define WIFI_SSID_1         "DEIN_WLAN"
+   #define WIFI_PASS_1         "DEIN_PASSWORT"
+   #define TAILSCALE_BASE_URL  "https://<tailnet-node>.ts.net"
+   ```
+3. [`MinecraftServerMonitor.ino`](MinecraftServerMonitor.ino) in der Arduino IDE öffnen.
+4. Board: **ESP32 Dev Module**.
+5. Flashen per USB.

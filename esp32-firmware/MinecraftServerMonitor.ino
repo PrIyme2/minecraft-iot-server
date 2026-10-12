@@ -42,12 +42,17 @@
 // =========================================================================
 // 3. WLAN & TAILSCALE KONFIGURATION
 // =========================================================================
-WiFiMulti wifiMulti;
+#if __has_include("config.h")
+  #include "config.h"
+#else
+  // Fallback-Platzhalter (Empfehlung: Vorlage config.h.example -> config.h kopieren)
+  #define WIFI_SSID_1         "YOUR_WIFI_SSID"
+  #define WIFI_PASS_1         "YOUR_WIFI_PASSWORD"
+  #define LOCAL_BASE_URL      "http://192.168.0.33:5000"
+  #define TAILSCALE_BASE_URL  "https://your-node.your-tailnet.ts.net"
+#endif
 
-// Weltweit erreichbare Tailscale-URL & lokales Heimnetz
-const char* TAILSCALE_BASE_URL = "https://prime.tail923f91.ts.net";
-const char* LOCAL_BASE_URL     = "http://192.168.0.33:5000";
-const char* HOTSPOT_SSID       = "test";
+WiFiMulti wifiMulti;
 
 // Intervall:
 const unsigned long UPDATE_INTERVAL = 2500;
@@ -615,8 +620,11 @@ void setup() {
   Serial.println("[WLAN] Verbinde mit WLAN/Hotspot...");
   WiFi.mode(WIFI_STA);
 
-  // WLAN: Konfiguration (SSID & Passwort hier eintragen)
-  wifiMulti.addAP("YOUR_HOTSPOT_SSID", "YOUR_HOTSPOT_PASSWORD");
+  // WLAN-Verbindungen registrieren (aus config.h oder Fallbacks)
+  wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
+#ifdef WIFI_SSID_2
+  wifiMulti.addAP(WIFI_SSID_2, WIFI_PASS_2);
+#endif
 
   int step = 0;
   while (wifiMulti.run() != WL_CONNECTED && step < 30) {
@@ -631,23 +639,23 @@ void setup() {
   digitalWrite(PIN_LED_YELLOW, LOW);
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("\n[WLAN] Verbunden mit Hotspot: %s\n", WiFi.SSID().c_str());
+    Serial.printf("\n[WLAN] Verbunden mit: %s\n", WiFi.SSID().c_str());
     Serial.print("[WLAN] ESP32 IP: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\n[WLAN] Hotspot 'test' nicht gefunden. Bitte am Handy aktivieren!");
+    Serial.println("\n[WLAN] Kein WLAN gefunden. Bitte Netzwerk ueberpruefen!");
 #if DISPLAY_TYPE == 1
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);
     display.setCursor(0, 8);
-    display.print("Hotspot 'test' ?");
+    display.print("Kein WLAN gefunden");
     display.setCursor(0, 24);
-    display.print("Am Handy bitte:");
+    display.print("Bitte pruefen:");
     display.setCursor(0, 38);
-    display.print("Hotspot 'test' AN");
+    display.print("WLAN / Hotspot AN");
     display.setCursor(0, 52);
-    display.print("Kompatibilitaet 2.4G");
+    display.print("2.4 GHz Frequenz");
     display.display();
     delay(2000);
 #endif
@@ -672,7 +680,7 @@ void loop() {
 
   if (now - lastUpdate >= interval) {
     if (wifiMulti.run() != WL_CONNECTED) {
-      Serial.println("[WLAN] Warte auf Verbindung mit Hotspot 'test'...");
+      Serial.println("[WLAN] Warte auf WLAN-Verbindung...");
       setLampState(false, 0.0f);
 #if DISPLAY_TYPE == 1
       display.clearDisplay();
@@ -686,9 +694,9 @@ void loop() {
       display.setCursor(20, 19);
       display.print("! KEIN WLAN !");
       display.setCursor(2, 34);
-      display.print("Suche Hotspot 'test'");
+      display.print("WLAN suchen...");
       display.setCursor(2, 46);
-      display.print("Handy: Kompatibilitaet");
+      display.print("Netzwerk / Hotspot");
       display.setCursor(2, 56);
       display.print("(2.4 GHz) aktivieren");
       display.display();

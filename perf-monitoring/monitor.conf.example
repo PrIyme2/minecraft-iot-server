@@ -8,7 +8,7 @@
 DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
 
 # --- Server- & Container-Identifikation ---
-CONTAINER_NAME="15978df8-7342-4713-8d50-3f15de6cc95d"
+CONTAINER_NAME="your_minecraft_container_uuid_here"
 SERVER_NAME="smp"
 
 # --- RCON-Verbindung fuer TPS & Spielerzahlen ---

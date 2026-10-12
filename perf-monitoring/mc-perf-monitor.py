@@ -21,7 +21,7 @@ CONFIG_FILE = os.path.join(SCRIPT_DIR, "monitor.conf")
 def load_config(path: str) -> dict:
     config = {
         "DISCORD_WEBHOOK_URL": "",
-        "CONTAINER_NAME": "15978df8-7342-4713-8d50-3f15de6cc95d",
+        "CONTAINER_NAME": os.environ.get("MC_CONTAINER_ID", "your_container_uuid_here"),
         "SERVER_NAME": "smp",
         "RCON_HOST": "127.0.0.1",
         "RCON_PORT": 25566,

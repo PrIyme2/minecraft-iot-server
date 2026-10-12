@@ -1,0 +1,26 @@
+#pragma once
+
+// =============================================================================
+// Konfiguration: ESP32 Minecraft Server Monitor & Controller
+// 
+// Anleitung:
+// Kopieren Sie diese Datei zu 'config.h' im selben Verzeichnis und passen
+// Sie die Werte an Ihre Umgebung an:
+//   cp config.h.example config.h
+// Die Datei 'config.h' ist in .gitignore eingetragen und wird nicht versioniert.
+// =============================================================================
+
+// 1. WLAN Zugangsdaten (Unterstuetzt mehrere Netzwerke via WiFiMulti)
+#define WIFI_SSID_1         "DEIN_HEIM_WLAN"
+#define WIFI_PASS_1         "DEIN_WLAN_PASSWORT"
+
+// Optionales Zweit-Netzwerk (z. B. mobiler Handy-Hotspot fuer unterwegs)
+#define WIFI_SSID_2         "DEIN_HOTSPOT_NAME"
+#define WIFI_PASS_2         "DEIN_HOTSPOT_PASSWORT"
+
+// 2. Endpunkte der REST-Bridge
+// Lokale LAN-Adresse des Host-Servers (schneller Zugriff im Heimnetz)
+#define LOCAL_BASE_URL      "http://192.168.0.33:5000"
+
+// Weltweite Tailscale Funnel HTTPS-URL (fuer unterwegs / Hotspot ohne Port-Forwarding)
+#define TAILSCALE_BASE_URL  "https://your-node.your-tailnet.ts.net"

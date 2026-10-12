@@ -115,8 +115,13 @@ fi
 
 # 5. Docker Containers
 echo -e "\n${BLUE}▶ 5. Docker Minecraft Container Status${NC}"
-if docker ps --format '{{.Names}}' | grep -q "15978df8-7342-4713-8d50-3f15de6cc95d"; then
-    echo -e "  [${GREEN}OK${NC}] Minecraft Container (15978df8...) is running"
+CHECK_CID="${MC_CONTAINER_ID:-}"
+if [[ -z "$CHECK_CID" ]]; then
+    CHECK_CID=$(docker ps --format '{{.Names}}' | grep -E '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' | head -n 1 || echo "")
+fi
+
+if [[ -n "$CHECK_CID" ]] && docker ps --format '{{.Names}}' | grep -q "$CHECK_CID"; then
+    echo -e "  [${GREEN}OK${NC}] Minecraft Container (${CHECK_CID:0:8}...) is running"
     ((pass_count++))
 else
     echo -e "  [${RED}FAIL${NC}] Minecraft Container is NOT running"

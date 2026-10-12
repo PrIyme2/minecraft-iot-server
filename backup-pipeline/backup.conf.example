@@ -6,10 +6,10 @@
 
 # --- Server-Pfade ---
 # Pfad zum Minecraft-Server-Volume (Reviactyl / Pterodactyl)
-MC_SERVER_DIR="/var/lib/reviactyl/volumes/15978df8-7342-4713-8d50-3f15de6cc95d"
+MC_SERVER_DIR="/var/lib/reviactyl/volumes/your_server_uuid_here"
 
 # Lokales Backup-Archivverzeichnis
-BACKUP_LOCAL_DIR="/home/prime/backups"
+BACKUP_LOCAL_DIR="/var/backups/minecraft"
 
 # Temporäres Arbeitsverzeichnis während der Backup-Erstellung
 TEMP_DIR="/tmp/mc_backup"

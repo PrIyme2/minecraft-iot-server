@@ -2,8 +2,12 @@
 *.conf
 !*.conf.example
 .env
+*.env
+!*.env.example
 backup.conf
 monitor.conf
+esp32-firmware/config.h
+!esp32-firmware/config.h.example
 
 # SSL/TLS certificates and private keys
 *.key

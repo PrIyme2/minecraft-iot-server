@@ -18,8 +18,20 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ==============================================================================
 # Konfiguration (Environment Variables mit Fallback)
-# ==============================================================================
-CONTAINER   = os.environ.get("MC_CONTAINER_ID", "15978df8-7342-4713-8d50-3f15de6cc95d")
+def get_default_container():
+    if "MC_CONTAINER_ID" in os.environ:
+        return os.environ["MC_CONTAINER_ID"]
+    try:
+        out = subprocess.check_output(["docker", "ps", "--format", "{{.Names}}"], stderr=subprocess.DEVNULL, text=True, timeout=2)
+        for name in out.strip().splitlines():
+            clean = name.strip()
+            if len(clean) == 36 and clean.count("-") == 4:
+                return clean
+    except Exception:
+        pass
+    return "YOUR_CONTAINER_UUID"
+
+CONTAINER   = get_default_container()
 AGENT_TOKEN = os.environ.get("PTERODACTYL_AGENT_TOKEN", "YOUR_AGENT_TOKEN_HERE")
 AGENT_URL   = os.environ.get("AGENT_URL", "http://127.0.0.1:8080")
 RCON_HOST   = os.environ.get("RCON_HOST", "127.0.0.1")
