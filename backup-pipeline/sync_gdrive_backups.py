@@ -3,7 +3,7 @@
 Sync Google Drive Minecraft Backups into Reviactyl / Pterodactyl Database.
 Filters strictly for Minecraft backups (mc_backup_*.tar.gz.gpg) and updates
 the 'panel.backups' table for server_id = 1 using the local mariadb client.
-Reads DB credentials dynamically from /var/www/pterodactyl/.env or environment.
+Supports resolving pending backups initiated via the Reviactyl web panel.
 """
 
 import subprocess
@@ -103,6 +103,8 @@ def fetch_gdrive_backups():
             "datetime": dt_str,
         })
 
+    # Sort descending by date
+    backups.sort(key=lambda x: x["datetime"], reverse=True)
     return backups
 
 def sync_to_database(gdrive_backups):
@@ -112,6 +114,8 @@ def sync_to_database(gdrive_backups):
         fetch_json=True
     )
     existing = {}
+    pending_rows = []
+
     if raw_existing:
         lines = raw_existing.strip().splitlines()
         if len(lines) > 1:
@@ -119,6 +123,8 @@ def sync_to_database(gdrive_backups):
             for line in lines[1:]:
                 row = dict(zip(headers, line.split("\t")))
                 existing[row["name"]] = row
+                if row.get("completed_at") in (None, "NULL", ""):
+                    pending_rows.append(row)
 
     gdrive_names = set()
     inserted = 0
@@ -130,32 +136,53 @@ def sync_to_database(gdrive_backups):
         b_bytes = b["bytes"]
         b_dt = b["datetime"]
 
-        if name not in existing:
-            new_uuid = str(uuid.uuid4())
-            sql = f"""
-            INSERT INTO backups (
-                server_id, uuid, is_successful, is_locked, name,
-                ignored_files, disk, checksum, bytes, completed_at,
-                created_at, updated_at
-            ) VALUES (
-                {SERVER_ID}, '{new_uuid}', 1, 0, '{name}',
-                '[]', 'agent', 'Google Drive (GPG AES-256)', {b_bytes}, '{b_dt}',
-                '{b_dt}', '{b_dt}'
-            );
-            """
-            run_db_query(sql)
-            inserted += 1
+        # Check if already in DB (either by exact name or inside brackets [mc_backup_...])
+        matched_row = None
+        for ex_name, ex_row in existing.items():
+            if ex_name == name or name in ex_name:
+                matched_row = ex_row
+                break
+
+        if matched_row is None:
+            # If there is a pending backup initiated via panel UI, resolve it!
+            if pending_rows:
+                pending = pending_rows.pop(0)
+                custom_name = pending["name"]
+                if custom_name.startswith("Backup ") or not custom_name.strip():
+                    final_name = name
+                else:
+                    final_name = f"{custom_name} [{name}]"
+                sql = f"UPDATE backups SET name = '{final_name}', bytes = {b_bytes}, checksum = 'Google Drive (GPG AES-256)', is_successful = 1, completed_at = '{b_dt}', updated_at = NOW() WHERE id = {pending['id']};"
+                run_db_query(sql)
+                updated += 1
+            else:
+                new_uuid = str(uuid.uuid4())
+                sql = f"""
+                INSERT INTO backups (
+                    server_id, uuid, is_successful, is_locked, name,
+                    ignored_files, disk, checksum, bytes, completed_at,
+                    created_at, updated_at
+                ) VALUES (
+                    {SERVER_ID}, '{new_uuid}', 1, 0, '{name}',
+                    '[]', 'agent', 'Google Drive (GPG AES-256)', {b_bytes}, '{b_dt}',
+                    '{b_dt}', '{b_dt}'
+                );
+                """
+                run_db_query(sql)
+                inserted += 1
         else:
-            row = existing[name]
-            if str(row.get("bytes")) != str(b_bytes) or row.get("deleted_at") != "NULL":
-                sql = f"UPDATE backups SET bytes = {b_bytes}, deleted_at = NULL, completed_at = '{b_dt}', updated_at = NOW() WHERE id = {row['id']};"
+            if str(matched_row.get("bytes")) != str(b_bytes) or matched_row.get("deleted_at") != "NULL":
+                sql = f"UPDATE backups SET bytes = {b_bytes}, deleted_at = NULL, completed_at = '{b_dt}', updated_at = NOW() WHERE id = {matched_row['id']};"
                 run_db_query(sql)
                 updated += 1
 
-    # Remove backups from DB that no longer exist on Google Drive
-    for name, row in existing.items():
-        if BACKUP_REGEX.match(name) and name not in gdrive_names:
-            run_db_query(f"DELETE FROM backups WHERE id = {row['id']};")
+    # Remove completed backups from DB that no longer exist on Google Drive (keep pending ones)
+    for ex_name, row in existing.items():
+        if row.get("completed_at") not in (None, "NULL", ""):
+            # Check if this backup is in gdrive_names
+            found = any(g_name == ex_name or g_name in ex_name for g_name in gdrive_names)
+            if not found and (BACKUP_REGEX.match(ex_name) or "mc_backup_" in ex_name):
+                run_db_query(f"DELETE FROM backups WHERE id = {row['id']};")
 
     print(f"[Sync] Google Drive Backups synchronisiert: {len(gdrive_backups)} aktiv ({inserted} neu, {updated} aktualisiert).")
 
