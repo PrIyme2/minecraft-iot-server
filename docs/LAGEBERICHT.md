@@ -14,49 +14,20 @@ Das Projekt realisiert eine professionelle, mehrschichtige IT-Infrastruktur für
 
 ## 2. Detaillierter Status aller Teilsysteme
 
-```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 LAPTOP (Debian 13 Linux)                               │
-│                                                                                        │
-│  ┌────────────────────────┐  ┌────────────────────────┐  ┌──────────────────────────┐  │
-│  │   Pterodactyl Panel    │  │  MariaDB SQL & Redis   │  │   CPU Performance Svc    │  │
-│  │ Nginx (Port 80) & PHP  │  │   Datenbank & Cache    │  │ Governor: ~3.9 GHz Turbo │  │
-│  └───────────┬────────────┘  └───────────┬────────────┘  └──────────────────────────┘  │
-│              │                           │                                             │
-│              ▼                           ▼                                             │
-│  ┌────────────────────────────────────────────────────┐  ┌──────────────────────────┐  │
-│  │        Docker: Purpur Minecraft Server 1.21        │  │ Automated Cloud Backup   │  │
-│  │  Port 25565 (Game) | Port 25566 (RCON Management)  │  │ RCON Flush + GPG AES-256 │  │
-│  └───────────────────────┬────────────────────────────┘  │ Rclone -> Google Drive   │  │
-│                          │                               └──────────────────────────┘  │
-│                          ▼                                                             │
-│  ┌────────────────────────────────────────────────────┐  ┌──────────────────────────┐  │
-│  │    mc-control-service.py (Systemd / Port 5000)     │  │ Discord Perf-Monitor     │  │
-│  │  Single-Socket RCON | Fast Cgroups RAM (30ms)      │  │ TPS, RAM & Crash Daemon  │  │
-│  └───────────────────────┬────────────────────────────┘  └──────────────────────────┘  │
-│                          │                                                             │
-│                          ▼                                                             │
-│  ┌────────────────────────────────────────────────────┐                                │
-│  │ Tailscale Funnel: https://prime.tail923f91.ts.net  │                                │
-│  │ Let's Encrypt TLS | Zero Port-Forwarding / CGNAT   │                                │
-│  └───────────────────────┬────────────────────────────┘                                │
-└──────────────────────────┼─────────────────────────────────────────────────────────────┘
-                           │ Weltweites HTTPS (Internet / Mobilfunk)
-                           ▼
-              ┌──────────────────────────┐
-              │    Mobiler 2.4 GHz AP    │
-              │         (WPA2)           │
-              └────────────┬─────────────┘
-                           │ Mobilfunk WLAN (10.x.x.x)
-                           ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              ESP32 HARDWARE-MONITOR & CONTROLLER                       │
-│                                                                                        │
-│   [OLED 128x64]            [3-Stufen LED-Ampel]           [3x Hardware-Taster]         │
-│   • Titelleiste + Pulse    • Grün:  TPS >= 19.5           • Pin 18: Server Start       │
-│   • Status-Badge           • Gelb:  16.0 <= TPS < 19.5    • Pin 19: Server Stop        │
-│   • Spieler, RAM, Ping     • Rot:   TPS < 16 oder Offline • Pin 23: Drive Backup       │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    ESP["ESP32 Controller<br/>(OLED, LED-Ampel, Taster)"]
+    Funnel["Tailscale Funnel<br/>(TLS 443 Ingress)"]
+    Bridge["mc-control-service.py<br/>(Port 5000 REST)"]
+    MC["Minecraft Server<br/>(Docker Purpur 1.21)"]
+    Host["Host-Dienste<br/>(Reviactyl, MariaDB, CPU Governor)"]
+    Cloud["Cloud & Monitoring<br/>(Google Drive, Discord Alerts)"]
+
+    ESP -->|"HTTPS / Mobilfunk"| Funnel
+    Funnel -->|"Proxy Port 80/5000"| Bridge
+    Bridge -->|"RCON & RAM Metriken"| MC
+    Host -->|"Management & Node Agent"| MC
+    MC -->|"Backups & Performance"| Cloud
 ```
 
 ---
@@ -129,7 +100,7 @@ Das Projekt realisiert eine professionelle, mehrschichtige IT-Infrastruktur für
 ---
 
 ### Schicht 6: Zero-Trust Remote-Vernetzung (Tailscale Funnel)
-* **Funnel-URL:** `https://prime.tail923f91.ts.net/`
+* **Funnel-URL:** `https://<tailnet-node>.ts.net/`
 * **Verschlüsselung:** Öffentliches Let's-Encrypt-TLS-Zertifikat.
 * **Routing:** Tailscale leitet eingehende weltweite HTTPS-Pakete an `127.0.0.1:5000` weiter.
 * **Bedeutung:**
@@ -139,14 +110,14 @@ Das Projekt realisiert eine professionelle, mehrschichtige IT-Infrastruktur für
 ---
 
 ### Schicht 7: IoT-Hardwarecontroller & Monitor (ESP32)
-* **Quellcode:** `/home/prime/Arduino/MinecraftServerMonitor/MinecraftServerMonitor.ino`
+* **Quellcode:** `esp32-firmware/MinecraftServerMonitor.ino`
 * **Hardware-Pins:**
   * **OLED-Display (SSD1306 128x64):** I2C SDA = GPIO 26, SCL = GPIO 25.
   * **Ampel-LEDs:** Grün = GPIO 27, Gelb = GPIO 14, Rot = GPIO 13.
   * **Taster:** Start = GPIO 18, Stop = GPIO 19, Backup = GPIO 23 (mit Hardware-Interrupts & Software-Debounce).
 * **Netzwerkanbindung:**
   * Dediziert angebunden an den mobilen 2,4 GHz Hotspot (WPA2).
-  * Ruft Serverdaten weltweit über Tailscale Funnel HTTPS (`https://prime.tail923f91.ts.net/api/status`) ab.
+  * Ruft Serverdaten weltweit über Tailscale Funnel HTTPS (`https://<tailnet-node>.ts.net/api/status`) ab.
   * Erkennt automatisch Hotspot-IP-Bereiche (`10.x.x.x`) und wählt direkt die HTTPS-Route ohne Socket-Verzögerung.
 * **Synchronisierte Ampel- und Display-Logik:**
   * **Optimal (>= 19.5 TPS):** Grüne LED an | Display: `[ OK ] ONLINE` | `TPS: 20.0 [GRÜN]` | `Spieler: X / 20`

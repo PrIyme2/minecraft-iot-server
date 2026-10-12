@@ -26,65 +26,84 @@ Das Gesamtsystem besteht aus sechs gekoppelten Teilsystemen:
 
 ```mermaid
 graph TD
-    subgraph Client ["Clients & Edge Devices"]
-        ESP["ESP32 IoT Controller"]
-        Player["Minecraft Java Client"]
-        Browser["Web-Browser (Admin)"]
+    subgraph WAN ["Worldwide Access (Internet / 4G / 5G)"]
+        UserPhone["Smartphone / Mobile Hotspot"]
+        RemotePlayer["Remote Minecraft Client"]
     end
 
-    subgraph Network ["Netzwerk & Ingress"]
-        Funnel["Tailscale Funnel (:443 TLS)"]
-        Mesh["Tailscale Mesh VPN (:22, :80, :25565)"]
-        DNS["BIND9 Split-View DNS (:53)"]
+    subgraph Hardware ["IoT Hardware Controller"]
+        ESP32["ESP32 Microcontroller"]
+        OLED["SSD1306 128x64 OLED"]
+        Ampel["3-Color Status LEDs (G/Y/R)"]
+        Buttons["Hardware Taster (Start/Stop/Backup)"]
+        ESP32 --> OLED
+        ESP32 --> Ampel
+        Buttons --> ESP32
     end
 
-    subgraph Host ["Linux Host (Debian 13)"]
-        Nginx["Nginx Reverse Proxy (:80)"]
-        Bridge["IoT REST Bridge (:5000)"]
-        Panel["Reviactyl Panel (PHP 8.3 FPM)"]
-        Extensions["Reviactyl Extensions (MCJars, Modrinth)"]
-        DB["MariaDB Database"]
-        Wings["Wings Container Daemon (:8080)"]
-        DockerMC["Purpur 1.21 Docker Container (:25565, :25566)"]
-        Backup["Backup & Sync Engine"]
-
-        Funnel --> Nginx
-        Mesh --> Nginx
-        Mesh --> DockerMC
-        Nginx --> Bridge
-        Nginx --> Panel
-        Panel --> Extensions
-        Panel --> DB
-        Bridge --> Wings
-        Bridge --> DockerMC
-        Backup --> DockerMC
-        Backup --> DB
+    subgraph Security ["Networking & Security Perimeter"]
+        TailscaleMesh["Tailscale Mesh VPN (WireGuard)"]
+        TailscaleFunnel["Tailscale Funnel (Public TLS Ingress)"]
+        BindDNS["BIND9 DNS (Split-View & SRV)"]
     end
 
-    subgraph Storage ["Cloud Storage & Alerts"]
-        GDrive["Google Drive (GPG AES-256)"]
-        Discord["Discord Webhook"]
-        Backup --> GDrive
-        Backup --> Discord
+    subgraph Host ["Debian 13 Linux Host"]
+        CPUOpt["CPU Governor (4.0 GHz Lock)"]
+
+        subgraph CoreServices ["Backend & Daemons"]
+            ControlBridge["mc-control-service.py (Port 5000 REST)"]
+            PerfMonitor["mc-perf-monitor.py (Daemon)"]
+            BackupService["Backup Pipeline (GPG AES-256)"]
+            Panel["Reviactyl / Pterodactyl Panel (Nginx / PHP 8.3)"]
+            MariaDB["MariaDB 10.x Database"]
+        end
+
+        subgraph Containers ["Docker Container Ecosystem"]
+            Wings["Pterodactyl Wings Agent (Port 8080)"]
+            MCServer["Purpur Minecraft 1.21.x Container\n(Port 25565 / RCON 25566)"]
+        end
     end
 
-    ESP -->|"HTTPS / Hotspot"| Funnel
-    Player -->|"mc.server.priyme"| DNS
-    Browser -->|"panel.server.priyme"| Nginx
+    subgraph Cloud ["Cloud & Notification Services"]
+        GDrive["Google Drive (Rclone Encrypted Storage)"]
+        Discord["Discord Webhook (Rich Embed Alerts)"]
+    end
+
+    %% Connections
+    ESP32 -->|"HTTPS Requests"| TailscaleFunnel
+    TailscaleFunnel --> ControlBridge
+    RemotePlayer --> BindDNS
+    BindDNS --> TailscaleMesh
+    TailscaleMesh --> MCServer
+
+    ControlBridge -->|"RCON (TPS & Players)"| MCServer
+    ControlBridge -->|"Cgroups RAM (30ms)"| MCServer
+    ControlBridge -->|"Power Actions"| Wings
+    ControlBridge -->|"Trigger Backup"| BackupService
+
+    PerfMonitor -->|"RCON Polling"| MCServer
+    PerfMonitor -->|"Alerts"| Discord
+
+    BackupService -->|"RCON Save Lock"| MCServer
+    BackupService -->|"mysqldump"| MariaDB
+    BackupService -->|"Encrypted Upload"| GDrive
+    BackupService -->|"Status Embeds"| Discord
 
     %% Clickable Links zur Implementierung & Installation
-    click ESP href "esp32-firmware/MinecraftServerMonitor.ino" "ESP32 Firmware Source"
-    click Funnel href "docs/TAILSCALE_SETUP.md" "Tailscale Setup & Funnel"
-    click Mesh href "docs/TAILSCALE_SETUP.md" "Tailscale Mesh VPN Setup"
-    click DNS href "dns-bind9/README.md" "BIND9 Split-View DNS"
-    click Nginx href "dns-bind9/nginx/pterodactyl.conf.example" "Nginx Reverse Proxy VHost"
-    click Bridge href "backend-bridge/mc-control-service.py" "mc-control-service.py REST API"
+    click ESP32 href "esp32-firmware/MinecraftServerMonitor.ino" "ESP32 Firmware Source"
+    click Buttons href "docs/HARDWARE_ESP32.md" "Hardware Schaltung & Taster"
+    click OLED href "docs/HARDWARE_ESP32.md" "OLED Display Spezifikation"
+    click Ampel href "docs/HARDWARE_ESP32.md" "LED Ampel Pinout"
+    click BindDNS href "dns-bind9/named.conf.split-view.example" "BIND9 DNS Konfiguration"
+    click TailscaleFunnel href "docs/TAILSCALE_SETUP.md" "Tailscale Funnel Setup"
+    click TailscaleMesh href "docs/TAILSCALE_SETUP.md" "Tailscale Mesh VPN Setup"
+    click CPUOpt href "system-tuning/set-cpu-performance.sh" "CPU Performance Lock Script"
+    click ControlBridge href "backend-bridge/mc-control-service.py" "mc-control-service.py REST API"
+    click PerfMonitor href "perf-monitoring/mc-perf-monitor.py" "Performance Monitor Daemon"
+    click BackupService href "backup-pipeline/backup.sh" "Backup Pipeline Skript"
     click Panel href "#phase-2-reviactyl-panel--wings-daemon" "Pterodactyl / Reviactyl Panel Installation"
-    click Extensions href "panel-extensions/README.md" "Reviactyl Extensions (MCJars & Modrinth)"
-    click DB href "#phase-2-reviactyl-panel--wings-daemon" "MariaDB Datenbank Setup"
-    click Wings href "docs/PTERODACTYL_NODE_WEBSOCKET_PNA.md" "Wings Agent Setup & WebSocket Fix"
-    click DockerMC href "scripts/healthcheck.sh" "Minecraft Server Health Check"
-    click Backup href "backup-pipeline/backup.sh" "Backup Pipeline Skript"
+    click Wings href "docs/PTERODACTYL_NODE_WEBSOCKET_PNA.md" "Pterodactyl Wings Agent & WebSocket Fix"
+    click MCServer href "scripts/healthcheck.sh" "Minecraft Server Health Check"
     click GDrive href "backup-pipeline/sync_gdrive_backups.py" "Google Drive Sync Engine"
     click Discord href "backup-pipeline/send_discord.py" "Discord Webhook Script"
 ```
