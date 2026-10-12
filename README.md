@@ -95,7 +95,13 @@ Debian-basiertes Minecraft-Hostsystem mit physischer ESP32-Hardwareüberwachung,
 
 ## 3. Voraussetzungen
 
-- **Host:** x86_64 PC/Server, 4 Kerne, 8 GB RAM, Debian 12/13.
+> [!IMPORTANT]
+> **Grundvoraussetzung:** Das **Reviactyl-Webpanel** (oder Pterodactyl v1.11+) muss auf dem Server installiert und betriebsbereit sein, bevor mit diesem Tutorial begonnen wird. Sämtliche Teilsysteme (Extensions, REST-Bridge, Node-Daemon und Google Drive Backup-Sync) setzen auf der Datenbank und der Verzeichnisstruktur von Reviactyl auf.
+>
+> Falls Reviactyl noch nicht installiert ist: Zuerst [Phase 2: Reviactyl Panel & Wings Daemon](#phase-2-reviactyl-panel--wings-daemon) durchführen!
+
+- **Webpanel:** Betriebsbereites Reviactyl- bzw. Pterodactyl-Panel (`/var/www/pterodactyl`, MariaDB, Nginx, PHP 8.3 FPM, Wings Agent).
+- **Host:** x86_64 PC/Server, mind. 4 Kerne, 8 GB RAM, Debian 12/13.
 - **Hardware-Controller:** ESP32 DevKit, 0.96" SSD1306 OLED (I2C), 3x LEDs (G/Y/R), 3x 330Ω Widerstände, 3x Taster.
 - **Accounts:** Tailscale-Account, Google-Konto für Drive-Backups.
 
