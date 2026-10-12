@@ -4,67 +4,92 @@ Detaillierte Dokumentation der mehrschichtigen Systemarchitektur, Datenflüsse u
 
 ---
 
-## 1. High-Level Architektur-Übersicht
+## 1. High-Level Architecture Diagram
 
-Die Architektur ist in 4 klare, voneinander entkoppelte Schichten unterteilt. Jede Komponente ist direkt mit ihrer Quellcode-Implementierung verlinkt:
+Klicke auf eine Komponente im Diagramm oder nutze die [Implementierungs-Tabelle](#-direkte-links-zur-implementierung), um direkt zum Quellcode zu springen:
 
 ```mermaid
 graph TD
-    %% Ebene 1: Clients & Hardware
-    subgraph E1 ["1. Hardware & Clients"]
-        ESP32["ESP32 IoT Controller<br/>(OLED, LEDs, Taster)"]
-        Clients["Spieler & Browser<br/>(Minecraft Client, Web-Admin)"]
+    subgraph WAN ["Worldwide Access (Internet / 4G / 5G)"]
+        UserPhone["Smartphone / Mobile Hotspot"]
+        RemotePlayer["Remote Minecraft Client"]
     end
 
-    %% Ebene 2: Netzwerk & Ingress
-    subgraph E2 ["2. Netzwerk & Ingress"]
-        DNS["BIND9 DNS Server<br/>(Split-View: LAN / Tailscale)"]
-        Nginx["Nginx Reverse Proxy<br/>(Ports 80 / 443 / Funnel)"]
+    subgraph Hardware ["IoT Hardware Controller"]
+        ESP32["ESP32 Microcontroller"]
+        OLED["SSD1306 128x64 OLED"]
+        Ampel["3-Color Status LEDs (G/Y/R)"]
+        Buttons["Hardware Taster (Start/Stop/Backup)"]
+        ESP32 --> OLED
+        ESP32 --> Ampel
+        Buttons --> ESP32
     end
 
-    %% Ebene 3: Core Services & Container
-    subgraph E3 ["3. Server Core & Steuerung"]
-        Bridge["mc-control-service.py<br/>(Port 5000 REST API)"]
-        Panel["Reviactyl Panel & Wings<br/>(PHP 8.3 / MariaDB / MCJars)"]
-        MC["Minecraft Server<br/>(Docker / Purpur 1.21)"]
+    subgraph Security ["Networking & Security Perimeter"]
+        TailscaleMesh["Tailscale Mesh VPN (WireGuard)"]
+        TailscaleFunnel["Tailscale Funnel (Public TLS Ingress)"]
+        BindDNS["BIND9 DNS (Split-View & SRV)"]
     end
 
-    %% Ebene 4: Backup & Cloud
-    subgraph E4 ["4. Backup & Cloud Ecosystem"]
-        Backup["Backup Pipeline<br/>(GPG AES-256 & DB Dump)"]
-        GDrive["Google Drive Storage<br/>(Rclone Sync)"]
-        Discord["Discord Webhooks<br/>(Alerts & Status)"]
+    subgraph Host ["Debian 13 Linux Host"]
+        CPUOpt["CPU Governor (4.0 GHz Lock)"]
+
+        subgraph CoreServices ["Backend & Daemons"]
+            ControlBridge["mc-control-service.py (Port 5000 REST)"]
+            PerfMonitor["mc-perf-monitor.py (Daemon)"]
+            BackupService["Backup Pipeline (GPG AES-256)"]
+            Panel["Reviactyl Panel (Nginx / PHP 8.3)"]
+            MariaDB["MariaDB 10.x Database"]
+        end
+
+        subgraph Containers ["Docker Container Ecosystem"]
+            Wings["Reviactyl / Wings Agent (Port 8080)"]
+            MCServer["Purpur Minecraft 1.21.x Container\n(Port 25565 / RCON 25566)"]
+        end
     end
 
-    %% Datenfluss
-    Clients -->|"DNS-Auflösung"| DNS
-    Clients -->|"Webpanel & HTTPS"| Nginx
-    Clients -->|"Game Traffic :25565"| MC
-    ESP32 -->|"REST API /api/status"| Nginx
+    subgraph Cloud ["Cloud & Notification Services"]
+        GDrive["Google Drive (Rclone Encrypted Storage)"]
+        Discord["Discord Webhook (Rich Embed Alerts)"]
+    end
 
-    Nginx -->|"Proxy :5000"| Bridge
-    Nginx -->|"FastCGI / Web"| Panel
+    %% Connections
+    ESP32 -->|"HTTPS Requests"| TailscaleFunnel
+    TailscaleFunnel --> ControlBridge
+    RemotePlayer --> BindDNS
+    BindDNS --> TailscaleMesh
+    TailscaleMesh --> MCServer
 
-    Bridge -->|"RCON & Cgroups RAM"| MC
-    Bridge -->|"Power Aktionen"| Panel
-    Bridge -->|"Trigger Backup"| Backup
-    Panel -->|"Wings Agent :8080"| MC
+    ControlBridge -->|"RCON (TPS & Players)"| MCServer
+    ControlBridge -->|"Cgroups RAM (30ms)"| MCServer
+    ControlBridge -->|"Power Actions"| Wings
+    ControlBridge -->|"Trigger Backup"| BackupService
 
-    Backup -->|"World & DB Freeze"| MC
-    Backup -->|"DB Sync"| Panel
-    Backup -->|"GPG Upload"| GDrive
-    Backup -.->|"Embeds"| Discord
+    PerfMonitor -->|"RCON Polling"| MCServer
+    PerfMonitor -->|"Alerts"| Discord
+
+    BackupService -->|"RCON Save Lock"| MCServer
+    BackupService -->|"mysqldump"| MariaDB
+    BackupService -->|"Encrypted Upload"| GDrive
+    BackupService -->|"Status Embeds"| Discord
 
     %% Clickable Links zur Implementierung auf GitHub
     click ESP32 href "../esp32-firmware/MinecraftServerMonitor.ino" "ESP32 Firmware Source"
-    click DNS href "../dns-bind9/named.conf.split-view.example" "BIND9 DNS Konfiguration"
-    click Nginx href "../dns-bind9/nginx/pterodactyl.conf.example" "Nginx Reverse Proxy Konfiguration"
-    click Bridge href "../backend-bridge/mc-control-service.py" "mc-control-service.py REST API"
-    click Panel href "../panel-extensions/README.md" "Reviactyl Panel Extensions & Config"
-    click MC href "../scripts/healthcheck.sh" "Minecraft Server Health Check"
-    click Backup href "../backup-pipeline/backup.sh" "Backup Pipeline Skript"
+    click Buttons href "./HARDWARE_ESP32.md" "Hardware Schaltung & Taster"
+    click OLED href "./HARDWARE_ESP32.md" "OLED Display Spezifikation"
+    click Ampel href "./HARDWARE_ESP32.md" "LED Ampel Pinout"
+    click BindDNS href "../dns-bind9/named.conf.split-view.example" "BIND9 DNS Konfiguration"
+    click TailscaleFunnel href "./TAILSCALE_SETUP.md" "Tailscale Funnel Setup"
+    click TailscaleMesh href "./TAILSCALE_SETUP.md" "Tailscale Mesh VPN Setup"
+    click CPUOpt href "../system-tuning/set-cpu-performance.sh" "CPU Performance Lock Script"
+    click ControlBridge href "../backend-bridge/mc-control-service.py" "mc-control-service.py REST API"
+    click PerfMonitor href "../perf-monitoring/mc-perf-monitor.py" "Performance Monitor Daemon"
+    click BackupService href "../backup-pipeline/backup.sh" "Backup Pipeline Skript"
+    click Panel href "../panel-extensions/README.md" "Reviactyl Panel Extensions"
+    click Wings href "./PTERODACTYL_REVERSE_PROXY.md" "Wings Reverse Proxy Setup"
+    click MCServer href "../scripts/healthcheck.sh" "Minecraft Server Health Check"
     click GDrive href "../backup-pipeline/sync_gdrive_backups.py" "Google Drive Sync Engine"
-    click Discord href "../backup-pipeline/send_discord.py" "Discord Webhook Integration"
+    click Discord href "../backup-pipeline/send_discord.py" "Discord Webhook Script"
 ```
 
 ---
