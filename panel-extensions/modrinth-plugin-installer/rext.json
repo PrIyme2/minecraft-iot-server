@@ -1,0 +1,52 @@
+{
+  "id": "modrinth-plugin-installer",
+  "identifier": "modrinth-plugin-installer",
+  "name": "Plugins",
+  "version": "1.2.5",
+  "api_version": "RCYL_v26",
+  "description": "BuiltByBit Luna-themed Multi-Platform Plugin Installer (Modrinth, Spigot, Hangar).",
+  "author": "Reviactyl Community",
+  "website": "https://modrinth.com",
+  "icon": "fas fa-puzzle-piece",
+  "permissions": [
+    "control.server"
+  ],
+  "backend": {
+    "routes": {
+      "client": {
+        "file": "backend/routes/client.php"
+      }
+    }
+  },
+  "frontend": {
+    "build_strategy": "precompiled",
+    "entry_points": [
+      "frontend/dist/ModrinthContainer.js"
+    ],
+    "routes": {
+      "serverRouter": [
+        {
+          "path": "plugins/modrinth",
+          "label": "Plugins",
+          "module": "frontend/dist/ModrinthContainer.js",
+          "icon": "fas fa-puzzle-piece",
+          "fa_icon": "fa-puzzle-piece",
+          "icon_name": "puzzle-piece"
+        }
+      ]
+    }
+  },
+  "navigation": {
+    "server": [
+      {
+        "name": "Plugins",
+        "key": "modrinth-plugins",
+        "route": "plugins/modrinth",
+        "icon": "fas fa-puzzle-piece",
+        "fa_icon": "fa-puzzle-piece",
+        "icon_name": "puzzle-piece",
+        "permission": "control.server"
+      }
+    ]
+  }
+}

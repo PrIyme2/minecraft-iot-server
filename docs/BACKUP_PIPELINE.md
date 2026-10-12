@@ -1,14 +1,14 @@
-# 📦 Backup Pipeline & Disaster Recovery Specification
+# Backup Pipeline & Disaster Recovery Spezifikation
 
-This document details the automated backup architecture, data consistency guarantees, encryption, and recovery procedures.
+Detaillierte Dokumentation der automatisierten Backup-Architektur, Datenkonsistenzgarantien, clientseitigen Verschlüsselung und Reviactyl-Integration.
 
 ---
 
-## 🛡️ Consistency Guarantee: The Save-Flush Cycle
+## 1. Konsistenzgarantie: Der Save-Flush Zyklus
 
-Minecraft servers hold world state, entity data, and player inventory in RAM before periodically flushing chunks to disk. Creating a raw filesystem backup without server coordination causes chunk boundary corruption (world tearing).
+Minecraft-Server halten Welt-Zustände, Entity-Daten und Spielerinventare im Arbeitsspeicher und schreiben Chunks asynchron auf die Festplatte. Ein direktes Kopieren des Dateisystems ohne Synchronisation führt zu inkonsistenten Chunk-Grenzen (World Tearing).
 
-To prevent this, the backup pipeline executes a zero-downtime 3-phase lock via RCON:
+Zur Vermeidung führt die Backup-Pipeline eine unterbrechungsfreie 3-Phasen-Sperre über RCON aus:
 
 ```mermaid
 sequenceDiagram
@@ -17,58 +17,67 @@ sequenceDiagram
     participant DB as MariaDB (Panel DB)
     participant GPG as GPG (AES-256)
     participant CLOUD as Google Drive (Rclone)
+    participant P as Reviactyl Panel DB
     participant D as Discord Webhook
 
-    B->>MC: RCON: say [Backup] Autosave paused...
-    B->>MC: RCON: save-off (Freeze chunk flushing)
-    B->>MC: RCON: save-all flush (Force all dirty memory pages to disk)
-    Note over MC: Disk state is now 100% frozen and coherent!
+    B->>MC: RCON: say [Backup] Autosave pausiert...
+    B->>MC: RCON: save-off (Chunk-Schreibvorgänge anhalten)
+    B->>MC: RCON: save-all flush (Speicherseiten auf Disk erzwingen)
+    Note over MC: Dateisystem ist atomar eingefroren und konsistent
 
     B->>DB: mysqldump panel > panel.sql
-    B->>B: Create tar archive (excluding caches & libraries)
-    B->>MC: RCON: save-on (Resume autosave)
-    B->>MC: RCON: say [Backup] World secured!
+    B->>B: Erstelle tar-Archiv (ohne Caches & Libraries)
+    B->>MC: RCON: save-on (Autosave reaktivieren)
+    B->>MC: RCON: say [Backup] Welt gesichert!
 
-    B->>GPG: Encrypt archive with AES-256
-    B->>CLOUD: rclone copyto GoogleDrive:MinecraftBackups
-    B->>B: Prune old local archives (> 5 count)
-    B->>CLOUD: rclone delete (Prune archives > 14 days)
-    B->>D: Post Success Embed (Size, Duration, Timestamp)
+    B->>GPG: Verschlüssele Archiv symmetrisch mit AES-256
+    B->>CLOUD: rclone copyto GoogleDrive:MinecraftBackups (8M Chunks)
+    B->>P: sync_gdrive_backups.py (Panel-Backupliste aktualisieren)
+    B->>B: Bereinige lokale Archive (Retention: 5)
+    B->>CLOUD: rclone delete (Archive älter als 14 Tage löschen)
+    B->>D: Sende Status-Embed (Größe, Dauer, Zeitstempel)
 ```
 
 ---
 
-## 🔒 Security: Client-Side GPG AES-256
+## 2. Sicherheit: Clientseitige GPG AES-256 Verschlüsselung
 
-Data stored in third-party cloud providers is vulnerable if credentials are breached. 
-The backup pipeline uses symmetric AES-256 encryption via GPG before uploading:
-- Command: `gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$GPG_PASSPHRASE" ...`
-- Resulting file: `mc_backup_YYYY-MM-DD_HH-MM-SS.tar.gz.gpg`
-- Raw world files, player UUID data, server properties, and MySQL database dumps are unreadable without the passphrase.
+In fremden Cloud-Speichern abgelegte Daten sind bei kompromittierten Zugangsdaten gefährdet. Daher verschlüsselt die Pipeline alle Archive symmetrisch vor dem Upload:
+- Befehl: `gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$GPG_PASSPHRASE" ...`
+- Dateiformat: `mc_backup_YYYY-MM-DD_HH-MM-SS.tar.gz.gpg`
+- Weltdateien, Spielerdaten und MariaDB-Dumps sind ohne die Passphrase nicht lesbar.
 
 ---
 
-## 🔄 Disaster Recovery Procedures
+## 3. Reviactyl Panel-Synchronisation
 
-In the event of hardware failure, world corruption, or ransomware:
+Damit autorisierte Administratoren Google Drive Backups direkt im Webpanel einsehen können:
+- [`sync_gdrive_backups.py`](../backup-pipeline/sync_gdrive_backups.py) fragt `rclone lsl gdrive:MinecraftBackups/` ab.
+- Filtert strikt nach `^mc_backup_.*\.tar\.gz\.gpg$` (ausschließlich echte Minecraft-Backups).
+- Trägt Größe, Zeitstempel und Checksum-Hinweis `Google Drive (GPG AES-256)` in die Panel-Tabelle `backups` ein.
+- Wird automatisch nach jedem Backup sowie alle 5 Minuten über den Systemd-Timer `gdrive-backup-sync.timer` ausgeführt.
 
-### 1. Listing Available Backups
+---
+
+## 4. Disaster Recovery & Wiederherstellung
+
+### 1. Verfügbare Backups auflisten
 ```bash
-./restore.sh --list
+/home/prime/minecraft-backup/restore.sh --list
 ```
-Displays all backups present in the local directory and in the Google Drive remote folder.
+Zeigt alle lokal und auf Google Drive vorhandenen Archive an.
 
-### 2. Downloading & Restoring from Cloud
+### 2. Wiederherstellen aus der Cloud
 ```bash
-# Download specific backup archive from Google Drive:
-./restore.sh --download mc_backup_2026-10-02_19-30-00.tar.gz.gpg
+# Bestimmtes Backup aus Google Drive herunterladen:
+/home/prime/minecraft-backup/restore.sh --download mc_backup_2026-10-09_17-46-42.tar.gz.gpg
 
-# Restore world files and databases into target directory:
-sudo ./restore.sh /home/prime/backups/mc_backup_2026-10-02_19-30-00.tar.gz.gpg --restore-db
+# Archiv entpacken und optional Datenbanken einspielen:
+sudo /home/prime/minecraft-backup/restore.sh /home/prime/backups/mc_backup_2026-10-09_17-46-42.tar.gz.gpg --restore-db
 ```
 
-### 3. Dry-Run Verification
-To verify backup integrity without modifying live directories:
+### 3. Trockenlauf (Dry-Run)
+Zur Überprüfung der Pipeline ohne Schreibvorgänge:
 ```bash
-sudo ./backup.sh --dry-run
+/home/prime/minecraft-backup/backup.sh --dry-run
 ```

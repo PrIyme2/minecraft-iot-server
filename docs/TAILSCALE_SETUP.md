@@ -1,64 +1,61 @@
-# 🌐 Tailscale Mesh VPN, Funnel & Remote Access Architecture
+# Tailscale Mesh VPN, Funnel & Remote Access Architecture
 
-This document describes how the Minecraft server infrastructure achieves secure worldwide connectivity, remote SSH administration, and public HTTPS ingress without opening any ports on the local home router.
-
----
-
-## 🔒 Zero-Trust Mesh Networking
-
-Traditional server hosting requires forwarding ports (such as `25565` or `80`) on the router, exposing the home IP address to DDoS attacks, port scanners, and ISP routing changes.
-
-Instead, this project utilizes **Tailscale** (built on the modern WireGuard protocol):
-1. **P2P Encrypted Mesh:** All participating devices (laptop server, remote administration PCs, player clients) communicate over peer-to-peer WireGuard tunnels with 256-bit encryption.
-2. **Stable Private IPs:** The server is assigned a deterministic `100.x.y.z` IP within the tailnet that never changes across network reboots or ISP reconnects.
+Dieses Dokument beschreibt die Netzwerkanbindung für weltweiten Zugriff, Remote-SSH-Administration und öffentlichen HTTPS-Ingress ohne Port-Forwarding am Router.
 
 ---
 
-## ⚡ Tailscale Funnel for Web & ESP32 Mobile Ingress
+## 1. Zero-Trust Mesh Networking
 
-Microcontrollers like the ESP32 connecting via cellular 4G/5G hotspots cannot run a full native WireGuard stack comfortably due to memory limits and roaming complexity. Furthermore, remote browsers require trusted public TLS certificates.
+Klassisches Server-Hosting erfordert Port-Weiterleitungen im Router (z. B. Port `25565` oder `80`), wodurch die private IP-Adresse öffentlich exponiert wird.
 
-To solve this, **Tailscale Funnel** is implemented on the host:
+Stattdessen nutzt dieses Projekt **Tailscale** auf Basis des WireGuard-Protokolls:
+1. **Peer-to-Peer Verschlüsselung:** Alle teilnehmenden Endgeräte (Host, Administrations-Clients, Minecraft-Spieler) kommunizieren über verschlüsselte WireGuard-Tunnel mit 256-Bit-Verschlüsselung.
+2. **Feste private IP:** Der Host erhält eine feste IP-Adresse aus dem Bereich `100.64.0.0/10` (`100.111.45.61`), die unabhängig von Router-Neustarts oder ISP-Wechseln stabil bleibt.
+
+---
+
+## 2. Tailscale Funnel für ESP32 Mobile Ingress
+
+Mikrocontroller wie der ESP32 können im Mobilfunknetz keinen vollständigen WireGuard-Stack betreiben. Ebenso erfordern Web-Clients gültige TLS-Zertifikate.
+
+Hierfür wird **Tailscale Funnel** auf dem Host genutzt:
 ```bash
-# Exposes the local Nginx webserver (Port 80) via Tailscale Funnel with automatic TLS:
-tailscale funnel --bg 80
+# Leitet öffentlichen HTTPS-Traffic auf den lokalen Nginx Webserver weiter:
+tailscale funnel --bg 443 on
 ```
-- Tailscale provisions an official Let's Encrypt TLS certificate for `prime.tail923f91.ts.net`.
-- Ingress traffic hits Tailscale's global edge nodes and is securely proxied over WireGuard to the local machine on port 80.
-- Nginx reverse-proxies `/api/status`, `/start`, `/stop`, `/backup`, `/status` to the Python bridge on port 5000, while serving Pterodactyl on `/`.
-- The ESP32 can send standard HTTPS requests (`WiFiClientSecure`) to `https://prime.tail923f91.ts.net/api/status` from any cellular carrier.
+- Tailscale stellt automatisch ein Let's Encrypt TLS-Zertifikat für `prime.tail923f91.ts.net` bereit.
+- Ingress-Traffic trifft auf globale Anycast-Knoten von Tailscale und wird über WireGuard verschlüsselt an Port 80 des Hosts weitergeleitet.
+- Nginx leitet `/api/status`, `/start`, `/stop` und `/backup` an die Python-Bridge auf Port 5000 weiter und serviert Reviactyl auf `/`.
+- Der ESP32 kann standardkonforme HTTPS-Anfragen an `https://prime.tail923f91.ts.net/api/status` aus jedem Mobilfunknetz absetzen.
 
 ---
 
-## 🔑 Remote SSH Administration (Worldwide Access)
+## 3. Remote-SSH Administration
 
-Port 22 is securely bound to the Tailscale interface (`tailscale0`), allowing full administrative shell access from anywhere without port-forwarding:
+Port 22 ist an das Tailscale-Interface gebunden, wodurch verschlüsselter Shell-Zugriff weltweit möglich ist:
 
-### 1. Connecting from PC / Laptop (Windows, macOS, Linux)
-Ensure Tailscale is connected, then run:
+### Verbindung von PC / Laptop (Windows, macOS, Linux):
 ```bash
 ssh prime@100.111.45.61
-# Or using MagicDNS hostname:
-ssh prime@prime
 ```
 
-### 2. Connecting from Mobile (iOS / Android)
-1. Launch and connect the **Tailscale** app on the mobile device.
-2. Open an SSH client app (e.g., **Termius**, **JuiceSSH**, or **Prompt**).
-3. Connect to Host `100.111.45.61` on Port `22` with username `prime`.
+### Verbindung vom Smartphone (iOS / Android):
+1. Tailscale-App auf dem Smartphone verbinden.
+2. Beliebigen SSH-Client (z. B. Termius oder JuiceSSH) öffnen.
+3. Verbindung zu Host `100.111.45.61` auf Port `22` herstellen.
 
 ---
 
-## 🌍 BIND9 Split-DNS & Split-View Setup
+## 4. BIND9 Split-DNS & Split-View
 
-To allow Minecraft players on Tailscale to connect with clean vanity domain names like `mc.server.priyme`:
+Um sprechende Domainnamen wie `mc.server.priyme` und `panel.server.priyme` aufzulösen:
 
-1. **Local BIND9 Server:** Runs on the host (`named`), listening on `0.0.0.0:53`.
+1. **Lokaler BIND9 Dienst:** Lauscht auf `0.0.0.0:53`.
 2. **Split-View Routing:**
-   - Tailscale queries (`100.64.0.0/10`) resolve to `100.111.45.61`.
-   - Local LAN queries resolve to `192.168.0.33`.
-3. **Tailscale MagicDNS / Split-DNS:**
-   - In Tailscale Admin Console -> DNS:
-     - Add Nameserver -> Custom IP: `100.111.45.61`.
-     - Enable "Restrict to search domain" -> `server.priyme`.
-   - Result: Normal internet traffic uses regular DNS, while queries to `*.server.priyme` are resolved directly by the laptop server.
+   - Anfragen aus dem Tailscale-Netz (`100.64.0.0/10`) erhalten `100.111.45.61`.
+   - Anfragen aus dem lokalen Heimnetz (`192.168.0.0/24`) erhalten `192.168.0.33`.
+3. **Tailscale Split-DNS Konfiguration:**
+   - In der Tailscale Admin-Konsole unter *DNS -> Nameservers*:
+     - Custom Nameserver: `100.111.45.61`.
+     - Suchdomäne beschränken auf: `server.priyme`.
+   - Ergebnis: Regulärer Internetverkehr nutzt den Standard-DNS des Providers, Anfragen an `*.server.priyme` werden direkt vom Host aufgelöst.

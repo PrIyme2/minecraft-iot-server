@@ -1,0 +1,1 @@
+#!/bin/bash\nphp artisan route:clear && php artisan cache:clear\n

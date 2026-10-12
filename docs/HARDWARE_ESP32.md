@@ -1,79 +1,79 @@
-# 📟 ESP32 Hardware Specification & Wiring Guide
+# ESP32 Hardware Specification & Wiring Guide
 
-Detailed technical documentation for assembling and wiring the external Minecraft IoT hardware monitor.
+Technische Dokumentation zur Bestückung, Verdrahtung und Inbetriebnahme des externen ESP32-Hardwarecontrollers für das Minecraft-Servermanagement.
 
 ---
 
-## 🧰 Component List (BOM)
+## 1. Stückliste (BOM)
 
-| Component | Quantity | Purpose |
+| Komponente | Anzahl | Spezifikation / Zweck |
 | :--- | :--- | :--- |
-| **ESP32 Dev Module** (ESP-WROOM-32, 30 or 38-pin) | 1 | Microcontroller with 2.4 GHz Wi-Fi & Dual Core MCU |
-| **0.96" I2C OLED Display** (SSD1306, 128x64) | 1 | Real-time display for TPS, RAM, Players, and State |
-| *Alternative:* **16x2 I2C LCD Display** (HD44780 + PCF8574) | 1 | Optional 2-line textual display |
-| **5mm LEDs** (1x Green, 1x Yellow, 1x Red) | 3 | Traffic light indicator for performance |
-| **Resistors 330 Ω** | 3 | Current limiting resistors for LEDs |
-| **Tactile Push Buttons** (6x6mm or momentary switches) | 3 | Start, Stop, and Backup triggers |
-| **Breadboard / Perfboard & Jumper Wires** | - | Wiring & assembly |
+| **ESP32 Dev Module** | 1 | ESP-WROOM-32 (30- oder 38-Pin), 2.4 GHz Wi-Fi & Dual-Core MCU |
+| **0.96" I2C OLED Display** | 1 | SSD1306, 128x64 Pixel, I2C-Schnittstelle (Adresse 0x3C) |
+| *Alternative:* **16x2 I2C LCD** | 1 | HD44780 mit PCF8574 I2C-Rucksack |
+| **5mm LEDs** | 3 | 1x Grün, 1x Gelb, 1x Rot (Ampel-Statusanzeige) |
+| **Vorwiderstände 330 Ω** | 3 | Strombegrenzung für Status-LEDs |
+| **Kurzhubtaster (Buttons)** | 3 | 6x6mm Taster für Start-, Stop- und Backup-Auslösung |
+| **Steckbrett & Jumper-Kabel** | - | Lötfreier Versuchsaufbau |
 
 ---
 
-## 🔌 Pinout & Wiring Table
+## 2. Pinbelegung & Schaltplan
 
 ```text
 ESP32 Dev Board
 ┌──────────────────────────────────────┐
-│ [EN]                            [D23]├─── Button: BACKUP (Pin 23 -> Button -> GND)
-│ [VP]                            [D22]├─── (Unused)
+│ [EN]                            [D23]├─── Taster: BACKUP (GPIO 23 -> Taster -> GND)
+│ [VP]                            [D22]├─── (Unbelegt)
 │ [VN]                            [TX0]│
 │ [D34]                           [RX0]│
 │ [D35]                           [D21]│
-│ [D32]                           [D19]├─── Button: STOP   (Pin 19 -> Button -> GND)
-│ [D33]                           [D18]├─── Button: START  (Pin 18 -> Button -> GND)
+│ [D32]                           [D19]├─── Taster: STOP   (GPIO 19 -> Taster -> GND)
+│ [D33]                           [D18]├─── Taster: START  (GPIO 18 -> Taster -> GND)
 │ [D25]─── I2C SCL (Display)       [D5]│
 │ [D26]─── I2C SDA (Display)       [TX2]│
-│ [D27]─── LED Gruen (TPS 20)      [RX2]│
+│ [D27]─── LED Grün  (TPS >= 19.5) [RX2]│
 │ [D14]─── LED Gelb  (Warnung)     [D4]│
 │ [D12]                           [D2]│
-│ [D13]─── LED Rot   (Offline)    [D15]│
-│ [GND]─── Common GND             [GND]├─── Common GND
-│ [VIN]─── 5V Power Supply        [3V3]├─── Display VCC (3.3V)
+│ [D13]─── LED Rot   (Offline/Lag) [D15]│
+│ [GND]─── Gemeinsame Masse       [GND]├─── Gemeinsame Masse
+│ [VIN]─── 5V Versorgung          [3V3]├─── Display VCC (3.3V)
 └──────────────────────────────────────┘
 ```
 
-### Complete Circuit Connections:
+### Verdrahtungsdetails:
 
 1. **SSD1306 OLED Display (I2C):**
-   - `VCC` $\rightarrow$ `ESP32 3V3`
-   - `GND` $\rightarrow$ `ESP32 GND`
-   - `SDA` $\rightarrow$ `ESP32 GPIO 26`
-   - `SCL` $\rightarrow$ `ESP32 GPIO 25`
+   - `VCC` -> `ESP32 3V3`
+   - `GND` -> `ESP32 GND`
+   - `SDA` -> `ESP32 GPIO 26`
+   - `SCL` -> `ESP32 GPIO 25`
 
-2. **LED Ampel (Traffic Light):**
-   - `LED Grün (Anode +)` $\rightarrow$ `330 Ω Resistor` $\rightarrow$ `ESP32 GPIO 27`
-   - `LED Gelb (Anode +)` $\rightarrow$ `330 Ω Resistor` $\rightarrow$ `ESP32 GPIO 14`
-   - `LED Rot (Anode +)` $\rightarrow$ `330 Ω Resistor` $\rightarrow$ `ESP32 GPIO 13`
-   - `Alle Kathoden (-)` $\rightarrow$ `Gemeinsamer ESP32 GND`
+2. **LED-Statusampel:**
+   - `LED Grün (Anode +)` -> `330 Ω Vorwiderstand` -> `ESP32 GPIO 27`
+   - `LED Gelb (Anode +)` -> `330 Ω Vorwiderstand` -> `ESP32 GPIO 14`
+   - `LED Rot (Anode +)` -> `330 Ω Vorwiderstand` -> `ESP32 GPIO 13`
+   - `Alle Kathoden (-)` -> `Gemeinsamer ESP32 GND`
 
-3. **Buttons (Taster):**
-   - Configured in software as `INPUT_PULLUP`.
-   - `Start Button`: Between `ESP32 GPIO 18` and `GND`.
-   - `Stop Button`: Between `ESP32 GPIO 19` and `GND`.
-   - `Backup Button`: Between `ESP32 GPIO 23` and `GND`.
+3. **Taster (Hardware-Interrupts mit Software-Entprellung):**
+   - Im Code konfiguriert als `INPUT_PULLUP` (schalten bei Betätigung gegen Masse).
+   - `Start-Taster`: Zwischen `ESP32 GPIO 18` und `GND`.
+   - `Stop-Taster`: Zwischen `ESP32 GPIO 19` und `GND`.
+   - `Backup-Taster`: Zwischen `ESP32 GPIO 23` und `GND`.
 
 ---
 
-## 🚦 Status Traffic Light Logic
+## 3. Logik der Statusampel
 
-| LED Color | Trigger Condition | Meaning |
+| LED-Farbe | Auslösebedingung | Bedeutung |
 | :--- | :--- | :--- |
-| **Grün (Green)** | Server online AND `TPS >= 19.5` | Perfect performance (no tick delay) |
-| **Gelb (Yellow)** | Booting up, shutting down, or `17.0 <= TPS < 19.5` | Caution: Under load or state transition |
-| **Rot (Red)** | Server offline OR `TPS < 17.0` | Critical lag, crashed, or stopped |
+| **Grün** | Server online UND `TPS >= 19.5` | Optimaler Betriebszustand (keine Tick-Verzögerung) |
+| **Gelb** | Server bootet / stoppt ODER `17.0 <= TPS < 19.5` | Warnung: Lastspitze oder Statuswechsel |
+| **Rot** | Server offline ODER `TPS < 17.0` | Kritischer Zustand: Server gestoppt oder schwerer Lag |
 
 ---
 
-## 🖥️ OLED Display Interface
+## 4. OLED Display Interface
 
 ```text
 ┌───────────────────────────────┐
@@ -84,8 +84,8 @@ ESP32 Dev Board
 │ PING:  34 ms  [HOTSPOT]       │
 └───────────────────────────────┘
 ```
-- Heartbeat-Icon (`[●]` / `[○]`) blinkt in der oberen rechten Ecke bei jedem Abrufzyklus.
+- Heartbeat-Icon (`[●]` / `[○]`) signalisiert aktive Datenabrufe in der oberen rechten Ecke.
 - Status-Badge zeigt `OFFLINE`, `STARTING`, `ONLINE` oder `STOPPING`.
 - `[GRÜN]` / `[GELB]` / `[ROT! LAG]` Statusauswertung wird mit nativem CP437-Umlaut (`\x9a`) gerendert.
-- RAM-Anzeige wurde zugunsten einer übersichtlichen Spieleranzeige im finalen Layout entfernt.
+- Zweite Zeile zeigt die aktuelle Spielerzahl im Format `Spieler: <online> / <max>`.
 - Netzwerk-Tag signalisiert direkte Tailscale Funnel HTTPS-Verbindung (`HOTSPOT`) oder lokales LAN (`LOCAL`).

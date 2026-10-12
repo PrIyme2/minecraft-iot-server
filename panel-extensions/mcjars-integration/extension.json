@@ -1,0 +1,52 @@
+{
+  "id": "mcjars-integration",
+  "identifier": "mcjars-integration",
+  "name": "Server Software",
+  "version": "1.3.0",
+  "api_version": "RCYL_v26",
+  "description": "High-Performance Server-Software Switcher & Auto-Core-Updater (All 28 Softwares, BuiltByBit Luna Design).",
+  "author": "Reviactyl Community",
+  "website": "https://mcjars.app",
+  "icon": "fas fa-server",
+  "permissions": [
+    "control.server"
+  ],
+  "backend": {
+    "routes": {
+      "client": {
+        "file": "backend/routes/client.php"
+      }
+    }
+  },
+  "frontend": {
+    "build_strategy": "precompiled",
+    "entry_points": [
+      "frontend/dist/MCJarsContainer.js"
+    ],
+    "routes": {
+      "serverRouter": [
+        {
+          "path": "mcjars",
+          "label": "Server Software",
+          "module": "frontend/dist/MCJarsContainer.js",
+          "icon": "fas fa-server",
+          "fa_icon": "fa-server",
+          "icon_name": "server"
+        }
+      ]
+    }
+  },
+  "navigation": {
+    "server": [
+      {
+        "name": "Server Software",
+        "key": "mcjars",
+        "route": "mcjars",
+        "icon": "fas fa-server",
+        "fa_icon": "fa-server",
+        "icon_name": "server",
+        "permission": "control.server"
+      }
+    ]
+  }
+}
