@@ -22,91 +22,58 @@ Debian-basiertes Minecraft-Hostsystem mit physischer ESP32-Hardwareüberwachung,
 
 ## 1. Systemarchitektur
 
-Klicke auf eine Komponente für den direkten Quellcode-Zugriff:
-
-```mermaid
-graph TD
-    subgraph WAN ["Worldwide Access (Internet / 4G / 5G)"]
-        UserPhone["Smartphone / Mobile Hotspot"]
-        RemotePlayer["Remote Minecraft Client"]
-    end
-
-    subgraph Hardware ["IoT Hardware Controller"]
-        ESP32["ESP32 Microcontroller"]
-        OLED["SSD1306 128x64 OLED"]
-        Ampel["3-Color Status LEDs (G/Y/R)"]
-        Buttons["Hardware Taster (Start/Stop/Backup)"]
-        ESP32 --> OLED
-        ESP32 --> Ampel
-        Buttons --> ESP32
-    end
-
-    subgraph Security ["Networking & Security Perimeter"]
-        TailscaleMesh["Tailscale Mesh VPN (WireGuard)"]
-        TailscaleFunnel["Tailscale Funnel (Public TLS Ingress)"]
-        BindDNS["BIND9 DNS (Split-View & SRV)"]
-    end
-
-    subgraph Host ["Debian 13 Linux Host"]
-        CPUOpt["CPU Governor (4.0 GHz Lock)"]
-
-        subgraph CoreServices ["Backend & Daemons"]
-            ControlBridge["mc-control-service.py (Port 5000 REST)"]
-            PerfMonitor["mc-perf-monitor.py (Daemon)"]
-            BackupService["Backup Pipeline (GPG AES-256)"]
-            Panel["Reviactyl / Pterodactyl Panel (Nginx / PHP 8.3)"]
-            MariaDB["MariaDB 10.x Database"]
-        end
-
-        subgraph Containers ["Docker Container Ecosystem"]
-            Wings["Pterodactyl Wings Agent (Port 8080)"]
-            MCServer["Purpur Minecraft 1.21.x Container\n(Port 25565 / RCON 25566)"]
-        end
-    end
-
-    subgraph Cloud ["Cloud & Notification Services"]
-        GDrive["Google Drive (Rclone Encrypted Storage)"]
-        Discord["Discord Webhook (Rich Embed Alerts)"]
-    end
-
-    %% Connections
-    ESP32 -->|"HTTPS Requests"| TailscaleFunnel
-    TailscaleFunnel --> ControlBridge
-    RemotePlayer --> BindDNS
-    BindDNS --> TailscaleMesh
-    TailscaleMesh --> MCServer
-
-    ControlBridge -->|"RCON (TPS & Players)"| MCServer
-    ControlBridge -->|"Cgroups RAM (30ms)"| MCServer
-    ControlBridge -->|"Power Actions"| Wings
-    ControlBridge -->|"Trigger Backup"| BackupService
-
-    PerfMonitor -->|"RCON Polling"| MCServer
-    PerfMonitor -->|"Alerts"| Discord
-
-    BackupService -->|"RCON Save Lock"| MCServer
-    BackupService -->|"mysqldump"| MariaDB
-    BackupService -->|"Encrypted Upload"| GDrive
-    BackupService -->|"Status Embeds"| Discord
-
-    %% Clickable Links zur Implementierung & Installation
-    click ESP32 href "esp32-firmware/MinecraftServerMonitor.ino" "ESP32 Firmware Source"
-    click Buttons href "docs/HARDWARE_ESP32.md" "Hardware Schaltung & Taster"
-    click OLED href "docs/HARDWARE_ESP32.md" "OLED Display Spezifikation"
-    click Ampel href "docs/HARDWARE_ESP32.md" "LED Ampel Pinout"
-    click BindDNS href "dns-bind9/named.conf.split-view.example" "BIND9 DNS Konfiguration"
-    click TailscaleFunnel href "docs/TAILSCALE_SETUP.md" "Tailscale Funnel Setup"
-    click TailscaleMesh href "docs/TAILSCALE_SETUP.md" "Tailscale Mesh VPN Setup"
-    click CPUOpt href "system-tuning/set-cpu-performance.sh" "CPU Performance Lock Script"
-    click ControlBridge href "backend-bridge/mc-control-service.py" "mc-control-service.py REST API"
-    click PerfMonitor href "perf-monitoring/mc-perf-monitor.py" "Performance Monitor Daemon"
-    click BackupService href "backup-pipeline/backup.sh" "Backup Pipeline Skript"
-    click Panel href "#phase-2-reviactyl-panel--wings-daemon" "Pterodactyl / Reviactyl Panel Installation"
-    click Wings href "docs/PTERODACTYL_NODE_WEBSOCKET_PNA.md" "Pterodactyl Wings Agent & WebSocket Fix"
-    click MCServer href "scripts/healthcheck.sh" "Minecraft Server Health Check"
-    click GDrive href "backup-pipeline/sync_gdrive_backups.py" "Google Drive Sync Engine"
-    click Discord href "backup-pipeline/send_discord.py" "Discord Webhook Script"
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 LAPTOP (Debian 13 Linux)                               │
+│                                                                                        │
+│  ┌────────────────────────┐  ┌────────────────────────┐  ┌──────────────────────────┐  │
+│  │   Pterodactyl Panel    │  │  MariaDB SQL & Redis   │  │   CPU Performance Svc    │  │
+│  │ Nginx (Port 80) & PHP  │  │   Datenbank & Cache    │  │ Governor: ~4.0 GHz Turbo │  │
+│  └───────────┬────────────┘  └───────────┬────────────┘  └──────────────────────────┘  │
+│              │                           │                                             │
+│              ▼                           ▼                                             │
+│  ┌────────────────────────────────────────────────────┐  ┌──────────────────────────┐  │
+│  │        Docker: Purpur Minecraft Server 1.21        │  │ Automated Cloud Backup   │  │
+│  │  Port 25565 (Game) | Port 25566 (RCON Management)  │  │ RCON Flush + GPG AES-256 │  │
+│  └───────────────────────┬────────────────────────────┘  │ Rclone -> Google Drive   │  │
+│                          │                               └──────────────────────────┘  │
+│                          ▼                                                             │
+│  ┌────────────────────────────────────────────────────┐  ┌──────────────────────────┐  │
+│  │    mc-control-service.py (Systemd / Port 5000)     │  │ Discord Perf-Monitor     │  │
+│  │  Single-Socket RCON | Fast Cgroups RAM (30ms)      │  │ TPS, RAM & Crash Daemon  │  │
+│  └───────────────────────┬────────────────────────────┘  └──────────────────────────┘  │
+│                          │                                                             │
+│                          ▼                                                             │
+│  ┌────────────────────────────────────────────────────┐                                │
+│  │ Tailscale Funnel: https://<tailnet-node>.ts.net    │                                │
+│  │ Let's Encrypt TLS | Zero Port-Forwarding / CGNAT   │                                │
+│  └───────────────────────┬────────────────────────────┘                                │
+└──────────────────────────┼─────────────────────────────────────────────────────────────┘
+                           │ Weltweites HTTPS (Internet / Mobilfunk)
+                           ▼
+              ┌──────────────────────────┐
+              │    Mobiler 2.4 GHz AP    │
+              │         (WPA2)           │
+              └────────────┬─────────────┘
+                           │ Mobilfunk WLAN (10.x.x.x)
+                           ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              ESP32 HARDWARE-MONITOR & CONTROLLER                       │
+│                                                                                        │
+│   [OLED 128x64]            [3-Stufen LED-Ampel]           [3x Hardware-Taster]         │
+│   • Titelleiste + Pulse    • Grün:  TPS >= 19.5           • Pin 18: Server Start       │
+│   • Status-Badge           • Gelb:  16.0 <= TPS < 19.5    • Pin 19: Server Stop        │
+│   • Spieler, RAM, Ping     • Rot:   TPS < 16 oder Offline • Pin 23: Drive Backup       │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Direkte Komponenten-Links:**
+- ESP32 Firmware: [`esp32-firmware/MinecraftServerMonitor.ino`](esp32-firmware/MinecraftServerMonitor.ino) & Pinout: [`docs/HARDWARE_ESP32.md`](docs/HARDWARE_ESP32.md)
+- REST Control Bridge: [`backend-bridge/mc-control-service.py`](backend-bridge/mc-control-service.py) (:5000)
+- Webpanel & Wings: [Phase 2](#phase-2-reviactyl-panel--wings-daemon) & [`docs/PTERODACTYL_REVERSE_PROXY.md`](docs/PTERODACTYL_REVERSE_PROXY.md)
+- Extensions (MCJars & Modrinth): [`panel-extensions/README.md`](panel-extensions/README.md)
+- Backup Pipeline: [`backup-pipeline/backup.sh`](backup-pipeline/backup.sh) & Drive Sync: [`backup-pipeline/sync_gdrive_backups.py`](backup-pipeline/sync_gdrive_backups.py)
+- DNS & Tailscale: [`dns-bind9/README.md`](dns-bind9/README.md) & [`docs/TAILSCALE_SETUP.md`](docs/TAILSCALE_SETUP.md)
 
 ---
 

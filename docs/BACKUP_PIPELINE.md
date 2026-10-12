@@ -6,19 +6,27 @@ Automatisierte Backup-Architektur mit Datenkonsistenz, GPG-Verschlüsselung und 
 
 ## 1. Pipeline-Ablauf
 
-```mermaid
-graph LR
-    Trigger["Start-Trigger<br/>(Panel / ESP32 / Timer)"] --> Step1["1. Konsistenz<br/>RCON save-off & flush"]
-    Step1 --> Step2["2. Dump & Bundle<br/>mysqldump + tar Archiv"]
-    Step2 --> Step3["3. Verschlüsselung<br/>GPG AES-256 Symmetrisch"]
-    Step3 --> Step4["4. Cloud-Sync<br/>Google Drive & Panel DB"]
-
-    %% Clickable Links
-    click Trigger href "../backend-bridge/mc-control-service.py" "Trigger Endpunkte"
-    click Step1 href "../backup-pipeline/backup.sh" "RCON Save-Lock in backup.sh"
-    click Step2 href "../backup-pipeline/backup.sh" "mysqldump und tar in backup.sh"
-    click Step3 href "../backup-pipeline/backup.sh" "GPG Verschlüsselung in backup.sh"
-    click Step4 href "../backup-pipeline/sync_gdrive_backups.py" "Google Drive Sync Engine"
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 BACKUP PIPELINE ABLAUF                                 │
+│                                                                                        │
+│  ┌────────────────────────┐         ┌────────────────────────┐                         │
+│  │     START-TRIGGER      │         │    1. RCON FREEZE      │                         │
+│  │ Webpanel / D23 / Timer │ ──────> │ save-off & save-all    │                         │
+│  └────────────────────────┘         └───────────┬────────────┘                         │
+│                                                 │                                      │
+│                                                 ▼                                      │
+│  ┌────────────────────────┐         ┌────────────────────────┐                         │
+│  │   3. VERSCHLÜSSELUNG   │         │    2. DUMP & ARCHIV    │                         │
+│  │ GPG AES-256 Symmetrisch│ <────── │ mysqldump + tar Bundle │                         │
+│  └───────────┬────────────┘         └────────────────────────┘                         │
+│              │                                                                         │
+│              ▼                                                                         │
+│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                              4. CLOUD-UPLOAD & SYNC                              │  │
+│  │          Rclone -> Google Drive (8M Chunks) + Panel MariaDB Sync                 │  │
+│  └──────────────────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
