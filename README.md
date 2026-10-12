@@ -1,161 +1,147 @@
-# 🎮 Minecraft Infrastructure & IoT Hardware Ecosystem
+# 🎮 Minecraft IoT Infrastructure & Edge Ecosystem
 
-[![Platform: Debian Linux](https://img.shields.io/badge/OS-Debian%2013-red.svg)](https://debian.org)
-[![Minecraft: Purpur 1.21](https://img.shields.io/badge/Minecraft-Purpur%201.21.x-blue.svg)](https://purpurmc.org)
-[![Hardware: ESP32](https://img.shields.io/badge/Hardware-ESP32-brightgreen.svg)](https://espressif.com)
-[![Network: Tailscale WireGuard](https://img.shields.io/badge/VPN-Tailscale%20Mesh-blueviolet.svg)](https://tailscale.com)
-[![DNS: BIND9 Split--View](https://img.shields.io/badge/DNS-BIND9%20Split--View-orange.svg)](https://www.isc.org/bind/)
-[![Security: GPG AES-256](https://img.shields.io/badge/Encryption-GPG%20AES--256-orange.svg)](https://gnupg.org)
+[![Debian 13](https://img.shields.io/badge/OS-Debian%2013-red.svg)](https://debian.org)
+[![Purpur 1.21](https://img.shields.io/badge/Minecraft-Purpur%201.21.x-blue.svg)](https://purpurmc.org)
+[![ESP32](https://img.shields.io/badge/Hardware-ESP32-brightgreen.svg)](https://espressif.com)
+[![Tailscale](https://img.shields.io/badge/VPN-Tailscale%20WireGuard-blueviolet.svg)](https://tailscale.com)
+[![BIND9](https://img.shields.io/badge/DNS-BIND9%20Split--View-orange.svg)](https://www.isc.org/bind/)
+[![GPG AES-256](https://img.shields.io/badge/Encryption-GPG%20AES--256-orange.svg)](https://gnupg.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Eine professionelle, produktionsreife IT-Infrastruktur für Game-Server-Hosting, Disaster Recovery, Performance-Monitoring und physische IoT-Fernsteuerung über einen externen ESP32-Mikrocontroller.
-
-Dieses Projekt vereint moderne **DevOps-Konzepte** (Docker, Systemd, Cgroups v2, REST-APIs), **Datensicherheit & Disaster Recovery** (GPG AES-256 Verschlüsselung, Cloud-Sync via Rclone), **Zero-Trust-Netzwerke** (Tailscale Mesh VPN & TLS Funnel, BIND9 Split-View DNS) sowie **Embedded Systems** (ESP32 C/C++, Hardware-Interrupts, I2C-Display und LED-Ampel).
+Dedizierter Linux-Host für Minecraft (Purpur 1.21) mit physischer ESP32-IoT-Fernbedienung, verschlüsselten Google-Drive-Backups und Zero-Trust-Netzwerk (Tailscale Funnel & BIND9 Split-View DNS).
 
 ---
 
-## 🏗️ Systemübersicht
+## 🏗️ Architektur
 
 ```mermaid
 graph TD
-    subgraph Mobile ["Mobiles Netz / Schule / Unterwegs"]
-        ESP["📟 ESP32 IoT Controller"]
-        Hotspot["📱 Handy Hotspot / LTE"]
+    subgraph Edge ["Mobiles Netz / Hotspot"]
+        ESP["📟 ESP32 Controller"]
+        Hotspot["📱 Mobilfunk Hotspot: 'test'"]
         ESP --> Hotspot
     end
 
-    subgraph Mesh ["Zero-Trust VPN & Edge Ingress"]
-        Funnel["🌍 Tailscale Funnel (HTTPS Ingress :443)"]
-        MeshVPN["🔐 Tailscale Mesh (WireGuard P2P :22, :80, :25565)"]
-        SplitDNS["🌐 BIND9 Split-View DNS (mc.server.priyme)"]
+    subgraph Ingress ["Zero-Trust VPN & Edge Ingress"]
+        Funnel["🌍 Tailscale Funnel (:443 HTTPS)"]
+        Mesh["🔐 Tailscale Mesh (:22, :80, :25565)"]
+        SplitDNS["🌐 BIND9 Split-View DNS"]
         Hotspot --> Funnel
     end
 
-    subgraph ServerHost ["Debian 13 Linux Server (Laptop)"]
-        Nginx["🌐 Nginx Reverse Proxy (:80 / :443)"]
-        Bridge["🔌 Backend Control Bridge (:5000)"]
-        DockerMC["⛏️ Purpur Minecraft 1.21 Container"]
-        Agent["🦅 Pterodactyl Wings Agent (:8080)"]
-        Monitor["📊 Performance & Alert Daemon"]
-        Backup["📦 Encrypted Backup Pipeline"]
-        CPULock["⚡ 4.0 GHz Turbo & C-State Tuning"]
+    subgraph Host ["Debian 13 Host (Laptop)"]
+        Nginx["Nginx Reverse Proxy (:80)"]
+        Bridge["IoT Bridge REST API (:5000)"]
+        DockerMC["Purpur 1.21 Container (:25565, :25566)"]
+        Wings["Pterodactyl Wings Agent (:8080)"]
+        Backup["GPG Backup Pipeline"]
 
         Funnel --> Nginx
         Nginx --> Bridge
-        Bridge --> Agent
+        Bridge --> Wings
         Bridge --> DockerMC
-        Monitor --> DockerMC
         Backup --> DockerMC
     end
 
-    subgraph CloudServices ["Cloud & Benachrichtigungen"]
+    subgraph Storage ["Cloud Backup"]
         GDrive["☁️ Google Drive (GPG AES-256)"]
-        Discord["💬 Discord Webhook (Rich Embeds)"]
+        Discord["💬 Discord Webhook"]
         Backup --> GDrive
         Backup --> Discord
-        Monitor --> Discord
     end
 ```
 
 ---
 
-## 📁 Repository-Struktur
+## 🔌 Netzwerk & Port-Mapping
 
-```text
-minecraft-iot-server/
-├── README.md                      # Gesamtdokumentation & Projektübersicht
-├── .gitignore                     # Schutz vor Commits sensibler Dateien & Logs
-├── scripts/                       # Diagnose- und Wartungsskripte
-│   └── healthcheck.sh             # Automatische 16-Punkte Systemdiagnose
-├── docs/                          # Vertiefende technische Dokumentationen
-│   ├── ARCHITECTURE.md            # Detaillierte Architektur, Datenflüsse & Port-Mapping
-│   ├── HARDWARE_ESP32.md          # Schaltpläne, Pinouts, Entprellung & Display-Modi
-│   ├── TAILSCALE_SETUP.md         # Zero-Trust VPN, Funnel Ingress, Split-DNS & Remote SSH
-│   ├── BACKUP_PIPELINE.md         # Save-Flush-Garantie, AES-256 & Disaster Recovery
-│   ├── PTERODACTYL_REVERSE_PROXY.md # Multi-Domain Reverse Proxy & Trusted Proxies Setup
-│   ├── PTERODACTYL_NODE_WEBSOCKET_PNA.md # Lösung für WebSocket PNA Blockaden
-│   ├── CLIENT_NETWORK_TROUBLESHOOTING.md # Leitfaden für WLAN-Wechsel & KI-Diagnose-Prompt
-│   └── LAGEBERICHT.md             # Vollständiger Systembericht und Komponentencheck
-├── esp32-firmware/                # Embedded C++ Firmware für den ESP32
-│   ├── MinecraftServerMonitor.ino # Hauptsketch (OLED/LCD, Taster, Ampel, WiFiMulti)
-│   └── README.md                  # Flash-Anleitung, Libraries & DTR/RTS Boot-Trap Fix
-├── backend-bridge/                # REST-API Schnittstelle für den ESP32
-│   ├── mc-control-service.py      # Python HTTP-Daemon (Cgroups RAM, RCON Pipeline)
-│   ├── mc-control.service         # Systemd Unit File
-│   ├── fix_node_fqdn.sql          # SQL-Patch für Pterodactyl Node-FQDN
-│   └── README.md                  # API-Endpunkte, curl-Tests & Einrichtung
-├── backup-pipeline/               # Disaster Recovery & Cloud Backup
-│   ├── backup.sh                  # Haupt-Backupskript mit RCON-Lock & GPG-Verschlüsselung
-│   ├── restore.sh                 # Interaktives Wiederherstellungsskript
-│   ├── setup_rclone.sh            # Rclone Google Drive Einrichtungsassistent
-│   ├── rcon_cli.py                # Zero-Dependency Python RCON Client
-│   ├── send_discord.py            # Rich Discord Embed Notifier
-│   ├── backup.conf.example        # Bereinigte Konfigurationsvorlage
-│   ├── systemd/                   # Systemd Timer (täglich 03:30 Uhr) & Service
-│   └── README.md                  # Backup-Optionen, Retention Policy & Dry-Run
-├── perf-monitoring/               # Echtzeitüberwachung & Alerting
-│   ├── mc-perf-monitor.py         # 20s Polling Daemon mit 5s/1m/5m TPS Durchschnitt
-│   ├── monitor.conf.example       # Konfigurationsvorlage für Webhooks & Schwellwerte
-│   ├── mc-perf-monitor.service    # Systemd Hintergrunddienst
-│   └── README.md                  # Schwellwertkonfiguration & Cooldown-Logik
-├── system-tuning/                 # Linux Host-Optimierung für Game-Server
-│   ├── set-cpu-performance.sh     # Performance Governor, 4.0 GHz Lock, C-States Off
-│   ├── cpu-performance.service    # Systemd Boot-Service
-│   └── README.md                  # Laptop Server Setup (Lid-Close, Thermals)
-└── dns-bind9/                     # Lokaler DNS & Split-View für weltweiten Zugriff
-    ├── named.conf.split-view.example # BIND9 View-Konfiguration (ACL Erkennung)
-    ├── named.conf.local           # Standard Heimnetz-Zonen
-    ├── named.conf.options         # Interface- & Forwarder-Optionen
-    ├── zones/                     # DNS-Zonendateien (60s TTL, LAN & Tailscale)
-    └── nginx/                     # Pterodactyl Nginx Reverse-Proxy Vorlage
-```
+| Port / Protokoll | Dienst | Funktion |
+| :--- | :--- | :--- |
+| `53/UDP/TCP` | **BIND9 DNS** | Split-View: LAN liefert `192.168.0.33`, Tailscale liefert `100.111.45.61` |
+| `80/TCP` | **Nginx** | Reverse-Proxy für Pterodactyl Panel und IoT-API `/api/status` |
+| `443/HTTPS` | **Tailscale Funnel** | Weltweiter TLS-Zugriff (`https://prime.tail923f91.ts.net`) ohne offene Router-Ports |
+| `5000/TCP` | **mc-control** | Python REST-Bridge (`/api/status`, `/start`, `/stop`, `/backup`) |
+| `8080/TCP` | **Wings Agent** | Pterodactyl Container Daemon WebSocket API |
+| `25565/TCP` | **Minecraft** | Purpur 1.21 Game-Traffic |
+| `25566/TCP` | **RCON** | Lokales Servermanagement (TPS, Playerlist, Save-Lock) |
 
 ---
 
-## 🌟 Hauptkomponenten im Detail
+## 📟 ESP32 Hardware-Controller
 
-### 1. 🌐 BIND9 Split-View DNS & Tailscale
-- **Automatische Client-Erkennung:** Tailscale-Clients (`100.64.0.0/10`) erhalten die VPN-IP `100.111.45.61`; lokale Heimnetz-Clients erhalten `192.168.0.33`.
-- **Niedrige 60s TTL:** Verhindert veraltete DNS-Caches auf Windows/Mobilgeräten beim Wechsel zwischen Heim-WLAN und mobilen Hotspots.
-- **Weltweite Erreichbarkeit:** `panel.server.priyme` und `mc.server.priyme` funktionieren nahtlos über Tailscale ohne offene Router-Ports.
+```text
+┌─────────────────────────────────┐
+│ MINECRAFT STATUS    [●] ONLINE  │
+│ ─────────────────────────────── │
+│ TPS:   20.00 / 20.00    [GRÜN]  │
+│ Spieler: 0 / 20                 │
+│ PING:  34 ms         [HOTSPOT]  │
+└─────────────────────────────────┘
+```
 
-### 2. 📟 ESP32 IoT Hardware Controller
-- **Anzeige:** SSD1306 0.96" OLED (128x64) oder HD44780 16x2 LCD Display.
-- **Ampel:** 3-farbige LED-Ampel (Grün = TPS ≥ 19.5, Gelb = Booting/Warnung, Rot = Offline/Lag).
-- **Steuerung:** 3 Taster (Start, Stop, Google Drive Backup) mit Hardware-Interrupts (`FALLING`) und 300ms Software-Entprellung.
-- **Netzwerk:** Automatisches Roaming via `WiFiMulti` (Handy-Hotspot für unterwegs, lokales WLAN zuhause) mit automatischem Fallback zwischen lokalem HTTP (`:5000`) und weltweitem HTTPS Funnel.
+### Pinbelegung
+- **Display (SSD1306 OLED, I2C):** `SDA = GPIO 26`, `SCL = GPIO 25`
+- **Taster (`INPUT_PULLUP` gegen GND):**
+  - `GPIO 18`: Server starten
+  - `GPIO 19`: Server stoppen
+  - `GPIO 23`: Google-Drive-Backup auslösen
+- **Ampel-LEDs (330 Ω gegen GND):**
+  - `GPIO 27`: Grün (Server online & TPS ≥ 19.5)
+  - `GPIO 14`: Gelb (Booting / Stoppen / TPS 17.0–19.4)
+  - `GPIO 13`: Rot (Server offline oder TPS < 17.0)
+- **Netzwerk:** Verbindet mit konfiguriertem 2,4 GHz Hotspot (WPA2). Erkennt Subnetz `10.x.x.x` und routet HTTPS direkt über Tailscale Funnel ohne TCP-SYN-Timeouts.
 
-### 3. 🔌 Backend Control Bridge (`mc-control-service`)
-- Ultraschneller Cgroups v2 RAM-Reader (`/sys/fs/cgroup/.../memory.current`), Antwortzeit ca. **30 Millisekunden** (statt 1,5 Sekunden bei `docker stats`).
-- Single-Socket RCON Multiplexing: Fragt TPS und Spielerzahlen über eine einzige TCP-Verbindung ab, um Socket-Timeouts zu eliminieren.
-- Direkte Integration mit der Pterodactyl Wings Agent API für saubere Server-Power-Cycles.
+---
 
-### 4. 📦 Verschlüsselte Google Drive Backup Pipeline
-- **Zero-Downtime Save-Flush:** Schützt Spielstände vor Chunk-Boundary-Tearing durch sequentielles `save-off` $\rightarrow$ `save-all flush` $\rightarrow$ `save-on`.
-- **Datenbanksicherung:** Automatischer Hot-Dump der MariaDB Pterodactyl-Panel-Datenbanken (`mysqldump`).
-- **GPG AES-256:** Clientseitige symmetrische Verschlüsselung vor dem Cloud-Upload.
-- **Rclone Integration:** Direkter Upload nach Google Drive mit automatischer Retention Policy (5 lokale Backups, 14 Tage Cloud-Speicher).
-- **Automatisierung:** Nativer Systemd-Timer jeden Tag um **03:30 Uhr**.
+## 📦 Backup & Recovery
 
-### 5. 🩺 Automatische Systemdiagnose (`healthcheck.sh`)
-- Einzeiliges Diagnosetool zur Überprüfung von 16 Parametern (BIND9, Nginx, Wings, Minecraft, IoT Bridge, Docker, Tailscale, Funnel HTTPS, DNS Views).
+- **Zero-Downtime Save-Flush:** Sequenz `save-off` $\rightarrow$ `save-all flush` $\rightarrow$ `tar cvzf` $\rightarrow$ `save-on`. Verhindert inkonsistente Chunks.
+- **Verschlüsselung:** Symmetrisch via `gpg --symmetric --cipher-algo AES-256`.
+- **Cloud-Sync:** `rclone` mit 8 MB Chunks nach Google Drive. Lokale Retention: 5 Archive, Cloud: 14 Tage.
+- **Zeitplan:** Täglicher Systemd-Timer um `03:30 Uhr` (`minecraft-backup.timer`).
 
 ---
 
 ## 🚀 Schnellstart & Diagnose
 
-### Systemzustand prüfen:
+### 1. Gesamtsystem prüfen (16 Prüfpunkte)
 ```bash
 ./scripts/healthcheck.sh
 ```
 
-### Fernwartung via SSH über Tailscale:
+### 2. Fernzugriff über SSH (Tailscale)
 ```bash
 ssh prime@100.111.45.61
 ```
 
+### 3. Server-Status manuell abfragen
+```bash
+curl -s https://prime.tail923f91.ts.net/api/status | jq .
+```
+
+### 4. Manuelles Cloud-Backup starten
+```bash
+/home/prime/minecraft-backup/backup.sh
+```
+
+### 5. Wiederherstellung
+```bash
+/home/prime/minecraft-backup/restore.sh
+```
+
 ---
 
-## 🔒 Sicherheitshinweis
+## 📂 Repository-Aufbau
 
-Alle sensiblen Daten (Discord Webhooks, MariaDB-Passwörter, RCON-Passwörter, Tailscale-Funnel-Tokens und GPG-Passphrasen) wurden in Vorlagendateien (`.example`) ausgelagert. Die Datei `.gitignore` verhindert, dass echte Zugangsdaten versehentlich in Git-Repositories eingecheckt werden.
+```text
+minecraft-iot-server/
+├── README.md                 # Zentrale Systemdokumentation
+├── scripts/healthcheck.sh    # Vollständige 16-Punkte Systemdiagnose
+├── docs/                     # Architektur, Hardware, DNS & Troubleshoot-Guides
+├── esp32-firmware/           # C++ Arduino Sketch (OLED, Buttons, Ampel, Funnel)
+├── backend-bridge/           # Python REST API Bridge (Cgroups v2 RAM, Wings, RCON)
+├── backup-pipeline/          # Save-Flush Backup, GPG AES-256, Rclone Sync & Timer
+├── perf-monitoring/          # 20s Polling Daemon mit Discord Webhook Alerts
+├── system-tuning/            # CPU Performance Governor & C-States Konfiguration
+└── dns-bind9/                # BIND9 Split-View DNS Zonen (LAN & Tailscale)
+```

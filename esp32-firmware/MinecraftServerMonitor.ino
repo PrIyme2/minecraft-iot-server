@@ -45,10 +45,9 @@
 WiFiMulti wifiMulti;
 
 // Weltweit erreichbare Tailscale-URL & lokales Heimnetz
-// Ersetze diese Werte mit deiner Tailscale Funnel Domain bzw. lokaler IP:
-const char* TAILSCALE_BASE_URL = "https://YOUR_TAILSCALE_DEVICE.ts.net";
+const char* TAILSCALE_BASE_URL = "https://prime.tail923f91.ts.net";
 const char* LOCAL_BASE_URL     = "http://192.168.0.33:5000";
-const char* HOME_SSID          = "YOUR_HOME_WIFI_SSID";
+const char* HOTSPOT_SSID       = "test";
 
 // Intervall:
 const unsigned long UPDATE_INTERVAL = 2500;
@@ -156,31 +155,36 @@ void setLampState(bool online, float tps) {
 
 // -------------------------------------------------------------------------
 // Server-Aktion senden (start / stop / backup)
-// Intelligent: Nutzt zu Hause LAN, unterwegs Tailscale Funnel HTTPS!
+// Intelligent: Versucht immer zuerst LAN (:5000), unterwegs Tailscale Funnel HTTPS!
 // -------------------------------------------------------------------------
 void sendServerAction(const char* action, const char* displayMsg) {
-  Serial.printf("\n>>> [BEFEHL] Sende '%s' an Laptop... <<<\n", action);
+  Serial.printf("\n>>> [BEFEHL] Sende '%s' an Server... <<<\n", action);
 
   if (WiFi.status() == WL_CONNECTED) {
-    bool atHome = (WiFi.SSID() == HOME_SSID);
     bool sent = false;
+    bool onLocalSubnet = (WiFi.localIP()[0] == 192 && WiFi.localIP()[1] == 168 && WiFi.localIP()[2] == 0);
 
-    // 1. Wenn zu Hause: Zuerst ultraschnell ueber LAN probieren
-    if (atHome) {
+    // 1. Nur wenn im selben 192.168.0.x Subnetz: Direkt ueber LAN probieren
+    if (onLocalSubnet) {
       HTTPClient localHttp;
       String localUrl = String(LOCAL_BASE_URL) + "/" + String(action);
+      Serial.printf("[HTTP] Sende an LAN: %s\n", localUrl.c_str());
       localHttp.begin(localUrl);
-      localHttp.setTimeout(2500);
+      localHttp.setTimeout(2000);
       int code = localHttp.GET();
       if (code > 0) {
-        Serial.printf("[HTTP-LAN] Antwort: %d\n", code);
+        String payload = localHttp.getString();
+        Serial.printf("[HTTP-LAN] Erfolg! Status %d: %s\n", code, payload.c_str());
         sent = true;
+      } else {
+        Serial.printf("[HTTP-LAN] LAN nicht erreichbar (%s)\n", localHttp.errorToString(code).c_str());
       }
       localHttp.end();
     }
 
-    // 2. Unterwegs (oder wenn LAN fehlschlaegt): Ueber Tailscale Funnel HTTPS
+    // 2. Unterwegs (z.B. auf Hotspot): Ueber weltweites Tailscale Funnel HTTPS!
     if (!sent) {
+      Serial.printf("[HTTP] Sende ueber Tailscale Funnel: %s/%s\n", TAILSCALE_BASE_URL, action);
       WiFiClientSecure secureClient;
       secureClient.setInsecure();
       secureClient.setTimeout(4000);
@@ -193,14 +197,15 @@ void sendServerAction(const char* action, const char* displayMsg) {
 
       if (httpCode > 0) {
         String payload = http.getString();
-        Serial.printf("[HTTP-Tailscale] Antwort: %d (%s)\n", httpCode, payload.c_str());
+        Serial.printf("[HTTP-Tailscale] Erfolg! Status %d (%s)\n", httpCode, payload.c_str());
+        sent = true;
       } else {
-        Serial.printf("[HTTP] Fehler: %s\n", http.errorToString(httpCode).c_str());
+        Serial.printf("[HTTP-Tailscale] Fehler: %s\n", http.errorToString(httpCode).c_str());
       }
       http.end();
     }
   } else {
-    Serial.println("[HTTP] FEHLER: Kein WLAN!");
+    Serial.println("[HTTP] FEHLER: Kein WLAN verbunden!");
   }
 }
 
@@ -328,14 +333,14 @@ void queryMinecraftServer() {
 
   unsigned long tStart = millis();
   bool success = false;
-  bool atHome = (WiFi.SSID() == HOME_SSID);
+  bool onLocalSubnet = (WiFi.localIP()[0] == 192 && WiFi.localIP()[1] == 168 && WiFi.localIP()[2] == 0);
 
-  // 1. Wenn zu Hause im Heim-WLAN: Zuerst schnelles LAN probieren
-  if (atHome) {
+  // 1. Wenn im selben 192.168.0.x Subnetz: Ultraschnell lokal abfragen
+  if (onLocalSubnet) {
     HTTPClient localHttp;
     String localUrl = String(LOCAL_BASE_URL) + "/api/status";
     localHttp.begin(localUrl);
-    localHttp.setTimeout(2500);
+    localHttp.setTimeout(2000);
 
     int localCode = localHttp.GET();
     if (localCode == 200) {
@@ -356,7 +361,7 @@ void queryMinecraftServer() {
     localHttp.end();
   }
 
-  // 2. Unterwegs (Handy-Hotspot) oder Fallback: Tailscale Funnel HTTPS
+  // 2. Unterwegs (Handy-Hotspot) oder Fallback: Weltweites Tailscale Funnel HTTPS!
   if (!success) {
     WiFiClientSecure secureClient;
     secureClient.setInsecure();
@@ -382,6 +387,8 @@ void queryMinecraftServer() {
         if (doc["ram_pct"].is<int>()) ramPct = doc["ram_pct"].as<int>();
         success = true;
       }
+    } else {
+      Serial.printf("[HTTP-Tailscale] /api/status Code: %d (%s)\n", httpCode, http.errorToString(httpCode).c_str());
     }
     http.end();
   }
@@ -427,11 +434,13 @@ void evaluateServerState() {
   } else {
     if (serverOnline) {
       serverState = STATE_ONLINE;
-      Serial.printf("[STATUS] Server ONLINE | Ping: %d ms | Spieler: %d/%d | TPS: %.1f | RAM: %d%%\n", 
-                    serverPing, onlinePlayers, maxPlayers, currentTps, ramPct);
+      Serial.printf("[STATUS] Server ONLINE | Ping: %d ms | Spieler: %d/%d | TPS: %.1f | RAM: %d%% | Taster: D18=%d D19=%d D23=%d\n", 
+                    serverPing, onlinePlayers, maxPlayers, currentTps, ramPct,
+                    digitalRead(PIN_BTN_START), digitalRead(PIN_BTN_STOP), digitalRead(PIN_BTN_BACKUP));
     } else {
       serverState = STATE_OFFLINE;
-      Serial.println("[STATUS] Server OFFLINE | Rote Lampe aktiv | Start mit D18");
+      Serial.printf("[STATUS] Server OFFLINE | Rote Lampe aktiv | Start mit D18 | Taster: D18=%d D19=%d D23=%d\n",
+                    digitalRead(PIN_BTN_START), digitalRead(PIN_BTN_STOP), digitalRead(PIN_BTN_BACKUP));
     }
   }
 
@@ -502,14 +511,14 @@ void updateDisplay() {
 
     display.setTextColor(SSD1306_WHITE);
     display.setCursor(2, 33);
-    display.printf("Spieler: %d/%d | RAM:%d%%", onlinePlayers, maxPlayers, ramPct);
+    display.printf("Spieler: %d / %d", onlinePlayers, maxPlayers);
 
     display.setCursor(2, 43);
     display.printf("Ping: %d ms", serverPing);
 
     display.setCursor(2, 53);
     if (currentTps >= 19.5f) {
-      display.printf("TPS: %.1f  [GRUEN]", currentTps);
+      display.printf("TPS: %.1f  [GR\x9a" "N]", currentTps);
     } else if (currentTps >= 16.0f) {
       display.printf("TPS: %.1f  [GELB]", currentTps);
     } else {
@@ -586,35 +595,34 @@ void setup() {
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     display.begin(SSD1306_SWITCHCAPVCC, 0x3D);
   }
+  display.cp437(true);
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(14, 8);
   display.print("MINECRAFT STATUS");
   display.drawFastHLine(0, 20, 128, SSD1306_WHITE);
   display.setCursor(0, 28);
-  display.print("Verbinde Hotspot...");
+  display.print("Verbinde WLAN...");
   display.setCursor(0, 42);
-  display.print("SSID: test (2.4GHz)");
+  display.print("WLAN / Hotspot...");
   display.display();
 #elif DISPLAY_TYPE == 2
   lcd.init(); lcd.backlight();
   lcd.setCursor(0, 0); lcd.print("Minecraft Monitor");
-  lcd.setCursor(0, 1); lcd.print("Hotspot: test   ");
+  lcd.setCursor(0, 1); lcd.print("Verbinde WLAN...");
 #endif
 
-  // WLAN-Zugangspunkte konfigurieren (Handy-Hotspot & Heimnetzwerk)
-  wifiMulti.addAP("YOUR_HOTSPOT_SSID", "YOUR_HOTSPOT_PASSWORD");
-  // Optional weitere Netzwerke hinzufuegen:
-  // wifiMulti.addAP("HOME_WIFI_SSID", "HOME_WIFI_PASSWORD");
-
-  Serial.println("[WLAN] Suche nach Handy-Hotspot (SSID: test)...");
+  Serial.println("[WLAN] Verbinde mit WLAN/Hotspot...");
   WiFi.mode(WIFI_STA);
 
+  // WLAN: Konfiguration (SSID & Passwort hier eintragen)
+  wifiMulti.addAP("YOUR_HOTSPOT_SSID", "YOUR_HOTSPOT_PASSWORD");
+
   int step = 0;
-  while (wifiMulti.run() != WL_CONNECTED && step < 25) {
+  while (wifiMulti.run() != WL_CONNECTED && step < 30) {
     delay(500);
 #if DISPLAY_TYPE == 1
-    display.fillRect(0, 54, step * 5, 6, SSD1306_WHITE);
+    display.fillRect(0, 54, (step % 25) * 5, 6, SSD1306_WHITE);
     display.display();
 #endif
     digitalWrite(PIN_LED_YELLOW, (step % 2 == 0) ? HIGH : LOW);
@@ -627,7 +635,7 @@ void setup() {
     Serial.print("[WLAN] ESP32 IP: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\n[WLAN] Hotspot 'test' noch nicht verbunden. Suche laeuft weiter...");
+    Serial.println("\n[WLAN] Hotspot 'test' nicht gefunden. Bitte am Handy aktivieren!");
 #if DISPLAY_TYPE == 1
     display.clearDisplay();
     display.setTextSize(1);
@@ -637,9 +645,9 @@ void setup() {
     display.setCursor(0, 24);
     display.print("Am Handy bitte:");
     display.setCursor(0, 38);
-    display.print("Kompatibilitaet");
+    display.print("Hotspot 'test' AN");
     display.setCursor(0, 52);
-    display.print("-> 2.4 GHz AN!");
+    display.print("Kompatibilitaet 2.4G");
     display.display();
     delay(2000);
 #endif
@@ -664,6 +672,7 @@ void loop() {
 
   if (now - lastUpdate >= interval) {
     if (wifiMulti.run() != WL_CONNECTED) {
+      Serial.println("[WLAN] Warte auf Verbindung mit Hotspot 'test'...");
       setLampState(false, 0.0f);
 #if DISPLAY_TYPE == 1
       display.clearDisplay();

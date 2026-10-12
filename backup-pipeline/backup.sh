@@ -310,11 +310,10 @@ if command -v rclone >/dev/null 2>&1; then
         log "INFO" "Starte Upload zu Google Drive (${RCLONE_REMOTE}:${RCLONE_FOLDER})..."
         if [[ "$DRY_RUN" == false ]]; then
             if rclone copy "$DEST_LOCAL_FILE" "${RCLONE_REMOTE}:${RCLONE_FOLDER}/" \
-                --drive-upload-cutoff 64M \
-                --drive-chunk-size 64M \
-                --tpslimit 4 \
-                --retries 3 \
-                --low-level-retries 10; then
+                --drive-chunk-size 8M \
+                --retries 5 \
+                --low-level-retries 10 \
+                --stats 15s; then
                 log "INFO" "Upload zu Google Drive erfolgreich abgeschlossen!"
                 UPLOAD_SUCCESS=true
 

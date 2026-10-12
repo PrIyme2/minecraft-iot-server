@@ -26,12 +26,14 @@ C/C++ Firmware für den ESP32-Microcontroller zur externen Überwachung und Steu
 2. **Interrupts & Debouncing:**
    - Alle 3 Taster nutzen Hardware-Interrupts (`attachInterrupt(..., FALLING)`) mit 300ms Software-Entprellung.
    - Parallele Polling-Überprüfung in der Hauptschleife verhindert verpasste Eingaben.
-3. **Netzwerk-Roaming (`WiFiMulti`):**
-   - Unterstützt mehrere gespeicherte APs (z. B. Handy-Hotspot und Heim-WLAN).
-   - Dynamische Umschaltung zwischen weltweitem Zugriff (`Tailscale HTTPS Funnel`) und Latenz-optimiertem lokalem Zugriff (`http://192.168.x.x:5000`).
-4. **Zustandsmaschine (Lifecycle Engine):**
+3. **Netzwerk-Routing & Tailscale Funnel:**
+   - Verbindet sich dediziert mit dem konfigurierten mobilen 2,4 GHz Hotspot (`test`).
+   - Intelligente Routing-Erkennung: Erkennt Hotspot-IP-Bereiche (`10.x.x.x`) und schaltet unmittelbar auf die weltweite HTTPS Tailscale Funnel Route um, wodurch TCP-Timeouts im Mobilfunknetz eliminiert werden.
+4. **Zustandsmaschine (Lifecycle Engine) & CP437 Display:**
    - `STATE_OFFLINE`, `STATE_STARTING`, `STATE_ONLINE`, `STATE_STOPPING`.
    - Heartbeat-Blinkindikator auf dem Display für aktive Verbindungen.
+   - Natives CP437 Umlaut-Rendering für `[GRÜN]`.
+   - Übersichtliche Anzeige mit Spielerzahlen (`Spieler: 0 / 20`), TPS und Millisekunden-Ping.
 
 ---
 

@@ -79,12 +79,13 @@ ESP32 Dev Board
 ┌───────────────────────────────┐
 │ MINECRAFT STATUS  [●] ONLINE  │
 │ ───────────────────────────── │
-│ TPS:   20.00 / 20.00          │
-│ RAM:   48 %                   │
-│ PLAY:  3 / 20                 │
+│ TPS:   20.00 / 20.00  [GRÜN]  │
+│ Spieler: 0 / 20               │
 │ PING:  34 ms  [HOTSPOT]       │
 └───────────────────────────────┘
 ```
-- Heartbeat icon (`[●]` / `[○]`) flashes in the top right corner during active polling.
-- Status badge shows `OFFLINE`, `STARTING`, `ONLINE`, or `STOPPING`.
-- Network tag indicates whether connection is routed through `LOCAL` or `HOTSPOT`.
+- Heartbeat-Icon (`[●]` / `[○]`) blinkt in der oberen rechten Ecke bei jedem Abrufzyklus.
+- Status-Badge zeigt `OFFLINE`, `STARTING`, `ONLINE` oder `STOPPING`.
+- `[GRÜN]` / `[GELB]` / `[ROT! LAG]` Statusauswertung wird mit nativem CP437-Umlaut (`\x9a`) gerendert.
+- RAM-Anzeige wurde zugunsten einer übersichtlichen Spieleranzeige im finalen Layout entfernt.
+- Netzwerk-Tag signalisiert direkte Tailscale Funnel HTTPS-Verbindung (`HOTSPOT`) oder lokales LAN (`LOCAL`).

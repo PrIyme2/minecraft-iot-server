@@ -44,10 +44,10 @@ Das Projekt realisiert eine professionelle, mehrschichtige IT-Infrastruktur für
                            │ Weltweites HTTPS (Internet / Mobilfunk)
                            ▼
               ┌──────────────────────────┐
-              │   Handy-Hotspot: "test"  │
-              │     (2.4 GHz / WPA2)     │
+              │    Mobiler 2.4 GHz AP    │
+              │         (WPA2)           │
               └────────────┬─────────────┘
-                           │ Lokales WLAN (IP: 10.29.104.115)
+                           │ Mobilfunk WLAN (10.x.x.x)
                            ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              ESP32 HARDWARE-MONITOR & CONTROLLER                       │
@@ -145,12 +145,12 @@ Das Projekt realisiert eine professionelle, mehrschichtige IT-Infrastruktur für
   * **Ampel-LEDs:** Grün = GPIO 27, Gelb = GPIO 14, Rot = GPIO 13.
   * **Taster:** Start = GPIO 18, Stop = GPIO 19, Backup = GPIO 23 (mit Hardware-Interrupts & Software-Debounce).
 * **Netzwerkanbindung:**
-  * Exklusiv angebunden an den mobilen Handy-Hotspot auf **2,4 GHz**.
-  * Aktuelle zugewiesene Hotspot-IP: **`10.29.104.115`**.
+  * Dediziert angebunden an den mobilen 2,4 GHz Hotspot (WPA2).
   * Ruft Serverdaten weltweit über Tailscale Funnel HTTPS (`https://prime.tail923f91.ts.net/api/status`) ab.
+  * Erkennt automatisch Hotspot-IP-Bereiche (`10.x.x.x`) und wählt direkt die HTTPS-Route ohne Socket-Verzögerung.
 * **Synchronisierte Ampel- und Display-Logik:**
-  * **Optimal (>= 19.5 TPS):** Grüne LED an | Display: `[ OK ] ONLINE` | `TPS: 20.0 [GRUEN]`
-  * **Mittellast (16.0 – 19.4 TPS):** Gelbe LED an | Display: `[WARN] MODERAT` | `TPS: XX.X [GELB]`
+  * **Optimal (>= 19.5 TPS):** Grüne LED an | Display: `[ OK ] ONLINE` | `TPS: 20.0 [GRÜN]` | `Spieler: X / 20`
+  * **Mittellast (16.0 – 19.4 TPS):** Gelbe LED an | Display: `[WARN] MODERAT` | `TPS: XX.X [GELB]` | `Spieler: X / 20`
   * **Schwerer Lag (< 16.0 TPS):** Rote LED an | Display: `[LAG] SEHR LANGSAM` | `TPS: XX.X [ROT! LAG]`
   * **Booting / Stoppen:** Gelbe LED an | Fortschrittsbalken & Statusmeldung.
   * **Server Offline:** Rote LED an | Display: `! OFFLINE ! -> SERVER STARTEN (D18)`.
