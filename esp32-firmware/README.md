@@ -1,73 +1,48 @@
-# 📟 ESP32 Minecraft IoT Hardware Controller Firmware
+# ESP32 Minecraft IoT Hardware Controller Firmware
 
-C/C++ Firmware für den ESP32-Microcontroller zur externen Überwachung und Steuerung des Minecraft-Servers.
+C/C++ Firmware für den ESP32 zur externen Überwachung und Steuerung des Minecraft-Servers.
 
 ---
 
-## 📌 Hardware-Pinbelegung
+## 1. Pinbelegung
 
-| Komponente | ESP32 GPIO Pin | Funktion / Beschreibung |
+| Komponente | GPIO | Funktion |
 | :--- | :--- | :--- |
-| **I2C SDA** | `GPIO 26` | Display-Datenleitung (SSD1306 OLED oder LCD 16x2) |
+| **I2C SDA** | `GPIO 26` | Display-Datenleitung (SSD1306 OLED) |
 | **I2C SCL** | `GPIO 25` | Display-Taktleitung |
-| **LED Grün** | `GPIO 27` | Status optimal: Server Online & TPS ≥ 19.5 (mit 330Ω Vorwiderstand) |
-| **LED Gelb** | `GPIO 14` | Status Warnung: Booting / Stop / TPS 17.0–19.4 |
-| **LED Rot** | `GPIO 13` | Status Alarm: Server Offline oder TPS < 17.0 |
-| **Taster START** | `GPIO 18` | Startet Server (`INPUT_PULLUP`, schaltet gegen GND) |
-| **Taster STOP** | `GPIO 19` | Stoppt Server (`INPUT_PULLUP`, schaltet gegen GND) |
-| **Taster BACKUP**| `GPIO 23` | Löst Cloud-Backup aus (`INPUT_PULLUP`, schaltet gegen GND) |
+| **LED Grün** | `GPIO 27` | TPS ≥ 19.5 (330Ω Vorwiderstand) |
+| **LED Gelb** | `GPIO 14` | Statuswechsel / TPS 17.0–19.4 / Backup aktiv |
+| **LED Rot** | `GPIO 13` | Server Offline oder TPS < 17.0 |
+| **Taster START** | `GPIO 18` | Startet Server (`INPUT_PULLUP` gegen GND) |
+| **Taster STOP** | `GPIO 19` | Stoppt Server (`INPUT_PULLUP` gegen GND) |
+| **Taster BACKUP**| `GPIO 23` | Startet Cloud-Backup (`INPUT_PULLUP` gegen GND) |
 
 ---
 
-## ⚙️ Features & Software-Architektur
+## 2. Kernfunktionen
 
-1. **Multi-Display-Unterstützung:**
-   - Umschaltbar über `#define DISPLAY_TYPE 1` (OLED 128x64 SSD1306) oder `2` (LCD 16x2 I2C).
-2. **Interrupts & Debouncing:**
-   - Alle 3 Taster nutzen Hardware-Interrupts (`attachInterrupt(..., FALLING)`) mit 300ms Software-Entprellung.
-   - Parallele Polling-Überprüfung in der Hauptschleife verhindert verpasste Eingaben.
-3. **Netzwerk-Routing & Tailscale Funnel:**
-   - Verbindet sich dediziert mit dem konfigurierten mobilen 2,4 GHz Hotspot (`test`).
-   - Intelligente Routing-Erkennung: Erkennt Hotspot-IP-Bereiche (`10.x.x.x`) und schaltet unmittelbar auf die weltweite HTTPS Tailscale Funnel Route um, wodurch TCP-Timeouts im Mobilfunknetz eliminiert werden.
-4. **Zustandsmaschine (Lifecycle Engine) & CP437 Display:**
-   - `STATE_OFFLINE`, `STATE_STARTING`, `STATE_ONLINE`, `STATE_STOPPING`.
-   - Heartbeat-Blinkindikator auf dem Display für aktive Verbindungen.
-   - Natives CP437 Umlaut-Rendering für `[GRÜN]`.
-   - Übersichtliche Anzeige mit Spielerzahlen (`Spieler: 0 / 20`), TPS und Millisekunden-Ping.
+- **Taster-Entprellung:** Hardware-Interrupts (`FALLING`) mit 300 ms Software-Debounce.
+- **Routing-Erkennung:** Erkennt Subnetz `10.x.x.x` (Hotspot) und schaltet direkt auf HTTPS (Tailscale Funnel) um. Im LAN wird die lokale IP genutzt.
+- **OLED Display:** Zeigt Status (`ONLINE`, `STARTING`, `STOPPING`, `OFFLINE`), TPS, Spielerzahl, Ping und Heartbeat-Icon.
 
 ---
 
-## ⚠️ Hardware-Hinweis: USB-UART DTR/RTS Boot-Trap
+## 3. Benötigte Bibliotheken
 
-Bei manchen ESP32-Dev-Boards (mit CP2102- oder CH340-Chip) kann es vorkommen, dass beim Neustart des Host-PCs oder beim Einstecken die Steuerleitungen DTR/RTS auf LOW gezogen werden. Dadurch geht der ESP32 in den **Download-Bootloader-Modus** (`boot:0x3 (DOWNLOAD_BOOT)`):
-
-- **Symptom:** Display bleibt dunkel, LEDs leuchten dauerhaft oder gar nicht, serielle Ausgabe zeigt `waiting for download`.
-- **Lösung:**
-  1. **Software-Reset über Host:**
-     ```bash
-     esptool.py --port /dev/ttyUSB0 run
-     ```
-  2. **Hardware-Fix:** Einen 10µF Elektrolytkondensator zwischen dem `EN`-Pin (Reset) und `GND` anbringen. Dies unterdrückt versehentliche Spikes auf der Reset-Leitung beim Host-Boot.
+In der Arduino IDE installieren:
+- `Adafruit SSD1306`
+- `Adafruit GFX Library`
+- `ArduinoJson` (v6 oder v7)
 
 ---
 
-## 📦 Benötigte Arduino-Bibliotheken
+## 4. Konfiguration & Flashen
 
-Über den Bibliotheksverwalter in der Arduino IDE (oder `arduino-cli`) installieren:
-- **Adafruit SSD1306** (von Adafruit)
-- **Adafruit GFX Library** (von Adafruit)
-- **ArduinoJson** (Version 6.x oder 7.x)
-- **LiquidCrystal_I2C** (von Frank de Brabander, falls LCD 16x2 genutzt wird)
-
----
-
-## 🚀 Flashen & Konfiguration
-
-1. Öffne [`MinecraftServerMonitor.ino`](MinecraftServerMonitor.ino) in der Arduino IDE.
-2. Passe die Zeilen 48–50 sowie 605 mit deinen Zugangsdaten an:
+1. [`MinecraftServerMonitor.ino`](MinecraftServerMonitor.ino) in Arduino IDE öffnen.
+2. Zeilen 48–50 mit eigener Funnel-URL und WLAN anpassen:
    ```cpp
-   const char* TAILSCALE_BASE_URL = "https://prime.tail923f91.ts.net";
-   wifiMulti.addAP("MEIN_HOTSPOT", "MEIN_PASSWORT");
+   const char* TAILSCALE_BASE_URL = "https://<tailnet-node>.ts.net";
+   wifiMulti.addAP("WLAN_SSID", "WLAN_PASSWORT");
    ```
-3. Wähle als Board: **ESP32 Dev Module** (oder NodeMCU-32S).
-4. Verbinde den ESP32 per USB-Kabel und klicke auf **Upload**.
+3. Board: **ESP32 Dev Module**.
+4. Flashen per USB.

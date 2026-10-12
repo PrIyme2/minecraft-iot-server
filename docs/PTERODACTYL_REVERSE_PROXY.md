@@ -1,45 +1,28 @@
-# Pterodactyl / Reviactyl Multi-Domain Reverse Proxy & Asset Setup
+# Pterodactyl Multi-Domain Reverse Proxy & Asset Setup
 
-Dokumentation zur Konfiguration von Nginx, Tailscale Funnel HTTPS und Laravel-Umgebungseinstellungen für Pterodactyl/Reviactyl, um Asset-Ladefehler und Mixed-Content-Blockaden zu verhindern.
-
----
-
-## 1. Problemstellung
-
-Wenn ein Pterodactyl-Panel über mehrere Domains und Interfaces aufgerufen werden soll (z. B. `http://panel.server.priyme`, `http://192.168.0.33`, `http://100.111.45.61` und Tailscale Funnel `https://<tailnet-node>.ts.net`), treten standardmäßig zwei Probleme auf:
-
-1. **Starrer `APP_URL` in Laravel:**
-   - Wenn `APP_URL="http://panel.server.priyme"` fest in `/var/www/pterodactyl/.env` steht, generiert das Panel alle CSS- und JS-Dateien mit dieser absoluten Domain.
-   - Ruft man das Panel über Tailscale Funnel (`https://...`) auf, blockiert der Browser die Skripte als **Mixed Content** (unsichere HTTP-Skripte auf einer HTTPS-Seite) $\rightarrow$ weißer Bildschirm.
-2. **Ignorierte `X-Forwarded-Proto`-Header:**
-   - Tailscale Funnel beendet TLS am Rand und leitet Anfragen als HTTP an Port 80 weiter.
-   - Da Laravel standardmäßig keinen Reverse-Proxies vertraut, erkennt PHP den Request als unsicheres HTTP, sofern `TRUSTED_PROXIES` nicht konfiguriert ist.
+Konfiguration gegen Mixed-Content-Fehler bei Zugriff über LAN, VPN und Tailscale Funnel.
 
 ---
 
-## 2. Die Lösung
+## 1. Problem
 
-### 1. Trusted Proxies in `.env` aktivieren
-In `/var/www/pterodactyl/.env`:
+Zugriff über HTTPS (Tailscale Funnel) erzeugt weißen Bildschirm (Mixed Content), wenn Laravel feste HTTP-URLs (`APP_URL`) für CSS/JS ausgibt und `X-Forwarded-Proto` ignoriert.
+
+---
+
+## 2. Lösung
+
+### 1. Trusted Proxies in `/var/www/pterodactyl/.env`
 ```dotenv
 TRUSTED_PROXIES=*
 ```
 
-Dadurch vertraut die Laravel-Middleware `TrustProxies` den Headern `X-Forwarded-Proto: https`, die von Tailscale Funnel übermittelt werden.
-
----
-
-### 2. Dynamische Asset-URLs in `config/app.php`
-In `/var/www/pterodactyl/config/app.php`:
+### 2. Dynamische Asset-URLs in `/var/www/pterodactyl/config/app.php`
 ```php
-// Dynamische Asset-Auflösung basierend auf dem aufrufenden Host
 'asset_url' => env('ASSET_URL', null),
 ```
 
----
-
-### 3. Scheme-Preservation in `AppServiceProvider.php`
-In `/var/www/pterodactyl/app/Providers/AppServiceProvider.php`:
+### 3. Schema-Anpassung in `/var/www/pterodactyl/app/Providers/AppServiceProvider.php`
 ```php
 if ($this->app->runningInConsole()) {
     $appUrl = config('app.url') ?? '';
@@ -50,17 +33,13 @@ if ($this->app->runningInConsole()) {
         URL::forceScheme('https');
     }
 } else {
-    // Bei eingehenden Web-Requests das Schema des Aufrufers respektieren
     if (request()->secure() || request()->header('x-forwarded-proto') === 'https') {
         URL::forceScheme('https');
     }
 }
 ```
 
----
-
-### 4. Cache bereinigen
-Nach jeder Anpassung den Laravel-Cache leeren:
+### 4. Cache leeren
 ```bash
 sudo -u www-data php /var/www/pterodactyl/artisan config:clear
 sudo -u www-data php /var/www/pterodactyl/artisan cache:clear
@@ -70,6 +49,4 @@ sudo -u www-data php /var/www/pterodactyl/artisan view:clear
 ---
 
 ## 3. Ergebnis
-- `http://panel.server.priyme/` $\rightarrow$ Assets laden als `http://panel.server.priyme/build/...`
-- `http://192.168.0.33/` $\rightarrow$ Assets laden als `http://192.168.0.33/build/...`
-- `https://<tailnet-node>.ts.net/` $\rightarrow$ Assets laden als `https://<tailnet-node>.ts.net/build/...` (kein Mixed Content)
+- Assets laden auf HTTP (`http://panel.server.priyme/`) und HTTPS (`https://<tailnet-node>.ts.net/`) ohne Fehler.
