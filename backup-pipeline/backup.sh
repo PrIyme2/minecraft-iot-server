@@ -323,6 +323,12 @@ if command -v rclone >/dev/null 2>&1; then
                     rclone delete "${RCLONE_REMOTE}:${RCLONE_FOLDER}" --min-age "${RETENTION_REMOTE_DAYS}d" 2>/dev/null || true
                     rclone rmdirs "${RCLONE_REMOTE}:${RCLONE_FOLDER}" --leave-root 2>/dev/null || true
                 fi
+
+                # Synchronisation mit Reviactyl Panel
+                if [[ -f "${SCRIPT_DIR}/sync_gdrive_backups.py" ]]; then
+                    log "INFO" "Synchronisiere Google Drive Backups mit Reviactyl Panel..."
+                    python3 "${SCRIPT_DIR}/sync_gdrive_backups.py" 2>&1 | while read -r line; do log "INFO" "$line"; done || true
+                fi
             else
                 log "WARN" "Fehler beim Upload zu Google Drive!"
             fi
